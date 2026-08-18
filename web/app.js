@@ -78,15 +78,29 @@ function selectFile(file) {
   sourcePreview.src = sourceURL;
 }
 
+const widthInput = document.querySelector('#width');
+const heightInput = document.querySelector('#height');
+const aspectRatio = document.querySelector('#aspect-ratio');
+
 document.querySelector('#preset').addEventListener('change', (event) => {
   if (event.target.value === 'custom') return;
   const [width, height] = event.target.value.split('x');
-  document.querySelector('#width').value = width;
-  document.querySelector('#height').value = height;
+  widthInput.value = width;
+  heightInput.value = height;
+  syncAspectRatioFromDimensions();
 });
-['#width', '#height'].forEach((selector) => document.querySelector(selector).addEventListener('input', () => {
+widthInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
-}));
+  applyAspectRatio();
+});
+heightInput.addEventListener('input', () => {
+  document.querySelector('#preset').value = 'custom';
+  syncAspectRatioFromDimensions();
+});
+aspectRatio.addEventListener('change', () => {
+  applyAspectRatio();
+  document.querySelector('#preset').value = 'custom';
+});
 document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', syncConditionalOptions));
 document.querySelector('#background').addEventListener('change', syncConditionalOptions);
 document.querySelector('#format').addEventListener('change', syncConditionalOptions);
@@ -107,6 +121,34 @@ function syncConditionalOptions() {
   }
 }
 syncConditionalOptions();
+syncAspectRatioFromDimensions();
+
+function applyAspectRatio() {
+  if (aspectRatio.value === 'free' || !widthInput.value) return;
+  const [widthPart, heightPart] = aspectRatio.value.split(':').map(Number);
+  const requestedWidth = Number(widthInput.value);
+  const maximumHeight = Number(heightInput.max);
+  const outputHeight = Math.round(requestedWidth * heightPart / widthPart);
+  if (outputHeight > maximumHeight) {
+    widthInput.value = Math.max(1, Math.floor(maximumHeight * widthPart / heightPart));
+  }
+  heightInput.value = Math.max(1, Math.round(Number(widthInput.value) * heightPart / widthPart));
+}
+
+function syncAspectRatioFromDimensions() {
+  const width = Number(widthInput.value);
+  const height = Number(heightInput.value);
+  if (!width || !height) {
+    aspectRatio.value = 'free';
+    return;
+  }
+  const matchingRatio = [...aspectRatio.options].find((option) => {
+    if (option.value === 'free') return false;
+    const [widthPart, heightPart] = option.value.split(':').map(Number);
+    return width * heightPart === height * widthPart;
+  });
+  aspectRatio.value = matchingRatio ? matchingRatio.value : 'free';
+}
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();

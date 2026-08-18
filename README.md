@@ -6,12 +6,15 @@ Kleines, eigenstaendiges Web-Tool zum Hochladen, Skalieren, Zuschneiden und Konv
 
 - Drag and Drop, Dateiauswahl und Einfuegen aus der Zwischenablage
 - Frei waehlbare Zielgroessen sowie gaengige Presets
+- Zielseitenverhaeltnisse fuer 16:9, 4:3, 3:2, 1:1 und 9:16
 - Resize-Modi: Stretch, Crop / Cover mit Position und Fit / Contain mit Hintergrundfarbe
 - Ausgabe als JPEG, PNG, WebP und AVIF (wenn der Container-Codec AVIF unterstuetzt)
 - Lokale Originalvorschau sowie serverseitige Ergebnisvorschau und Download
 - Einstellbare Qualitaet fuer JPEG, WebP und AVIF
 - Metadatenentfernung inklusive EXIF/GPS ist standardmaessig aktiv
 - Validierung, Upload- und Pixelgrenzen sowie saubere Fehlermeldungen
+
+Die Weboberflaeche startet mit Stretch und JPEG als Ausgabeformat. Bei einem gewaehlten Zielseitenverhaeltnis wird die Hoehe aus der Breite berechnet.
 
 ## Architektur
 
