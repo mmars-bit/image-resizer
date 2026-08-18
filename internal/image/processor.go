@@ -87,6 +87,9 @@ func (p *Processor) validate(req Request) error {
 	if req.Mode == ModeCrop && !validCrop(req.CropY, false) {
 		return ErrInvalidCrop
 	}
+	if req.ManualCrop && !validManualCrop(req) {
+		return ErrInvalidManualCrop
+	}
 	if req.Mode == ModeFit {
 		if _, _, _, _, err := parseBackground(req.Background); err != nil {
 			return err
@@ -98,7 +101,20 @@ func (p *Processor) validate(req Request) error {
 	return nil
 }
 
+func validManualCrop(req Request) bool {
+	values := []float64{req.CropLeft, req.CropTop, req.CropWidth, req.CropHeight}
+	for _, value := range values {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return false
+		}
+	}
+	return req.Mode == ModeCrop && req.CropLeft >= 0 && req.CropTop >= 0 && req.CropLeft < 1 && req.CropTop < 1 && req.CropWidth > 0 && req.CropHeight > 0 && req.CropWidth <= 1 && req.CropHeight <= 1 && req.CropLeft+req.CropWidth <= 1 && req.CropTop+req.CropHeight <= 1
+}
+
 func crop(img *vips.ImageRef, req Request) error {
+	if req.ManualCrop {
+		return manualCrop(img, req)
+	}
 	scale := math.Max(float64(req.Width)/float64(img.Width()), float64(req.Height)/float64(img.Height()))
 	if err := img.Resize(scale, vips.KernelLanczos3); err != nil {
 		return err
@@ -106,6 +122,19 @@ func crop(img *vips.ImageRef, req Request) error {
 	left := positionedOffset(img.Width()-req.Width, req.CropX)
 	top := positionedOffset(img.Height()-req.Height, req.CropY)
 	return img.ExtractArea(left, top, req.Width, req.Height)
+}
+
+func manualCrop(img *vips.ImageRef, req Request) error {
+	left := int(math.Floor(req.CropLeft * float64(img.Width())))
+	top := int(math.Floor(req.CropTop * float64(img.Height())))
+	right := min(img.Width(), max(left+1, int(math.Ceil((req.CropLeft+req.CropWidth)*float64(img.Width())))))
+	bottom := min(img.Height(), max(top+1, int(math.Ceil((req.CropTop+req.CropHeight)*float64(img.Height())))))
+	width := right - left
+	height := bottom - top
+	if err := img.ExtractArea(left, top, width, height); err != nil {
+		return err
+	}
+	return img.ResizeWithVScale(float64(req.Width)/float64(width), float64(req.Height)/float64(height), vips.KernelLanczos3)
 }
 
 func fit(img *vips.ImageRef, req Request) error {

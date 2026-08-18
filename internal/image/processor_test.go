@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"testing"
 
@@ -61,12 +62,35 @@ func TestFitProducesExactDimensionsAndPreservesAspect(t *testing.T) {
 	}
 }
 
+func TestManualCropUsesSelectedArea(t *testing.T) {
+	result := processFixture(t, 400, 300, Request{
+		Width: 100, Height: 300, Mode: ModeCrop, Format: FormatPNG, Quality: 85,
+		CropX: "center", CropY: "center", ManualCrop: true, CropLeft: 0.75, CropTop: 0, CropWidth: 0.25, CropHeight: 1,
+		StripMetadata: true,
+	})
+	img := decodePNG(t, result.Data)
+	red, _, _, _ := img.At(0, 150).RGBA()
+	if red < 40<<8 {
+		t.Fatalf("manual crop did not use the selected right-hand image area: red=%d", red>>8)
+	}
+}
+
 func TestInvalidRequestsAreRejected(t *testing.T) {
 	base := Request{Width: 100, Height: 100, Mode: ModeStretch, Format: FormatPNG, Quality: 85}
 	for name, mutate := range map[string]func(*Request){
 		"dimensions": func(r *Request) { r.Width = 0 },
 		"mode":       func(r *Request) { r.Mode = "unknown" },
 		"quality":    func(r *Request) { r.Quality = 101 },
+		"manual crop": func(r *Request) {
+			r.Mode = ModeCrop
+			r.CropX, r.CropY = "center", "center"
+			r.ManualCrop, r.CropLeft, r.CropWidth = true, 0.9, 0.2
+		},
+		"non-finite crop": func(r *Request) {
+			r.Mode = ModeCrop
+			r.CropX, r.CropY = "center", "center"
+			r.ManualCrop, r.CropLeft, r.CropWidth, r.CropHeight = true, math.NaN(), 1, 1
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			req := base

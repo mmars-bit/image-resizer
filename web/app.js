@@ -13,9 +13,13 @@ const formError = document.querySelector('#form-error');
 const resultPanel = document.querySelector('#result-panel');
 const resultPreview = document.querySelector('#result-preview');
 const download = document.querySelector('#download');
+const cropEditor = document.querySelector('#crop-editor');
+const cropSelection = document.querySelector('#crop-selection');
 let selectedFile;
 let sourceURL;
 let resultURL;
+let cropState;
+let cropDrag;
 
 chooseFile.addEventListener('click', () => fileInput.click());
 dropZone.addEventListener('click', (event) => {
@@ -68,12 +72,15 @@ function selectFile(file) {
     sourcePreview.hidden = false;
     sourcePlaceholder.hidden = true;
     sourceWrap.classList.remove('empty');
+    resetCropSelection();
+    syncCropEditor();
   };
   sourcePreview.onerror = () => {
     document.querySelector('#source-resolution').textContent = 'Browser-Vorschau nicht verfuegbar';
     sourcePreview.hidden = true;
     sourcePlaceholder.textContent = 'Vorschau fuer dieses Format nicht verfuegbar';
     sourcePlaceholder.hidden = false;
+    cropEditor.hidden = true;
   };
   sourcePreview.src = sourceURL;
 }
@@ -88,20 +95,31 @@ document.querySelector('#preset').addEventListener('change', (event) => {
   widthInput.value = width;
   heightInput.value = height;
   syncAspectRatioFromDimensions();
+  resetCropSelection();
+  syncCropEditor();
 });
 widthInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   applyAspectRatio();
+  resetCropSelection();
+  syncCropEditor();
 });
 heightInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   syncAspectRatioFromDimensions();
+  resetCropSelection();
+  syncCropEditor();
 });
 aspectRatio.addEventListener('change', () => {
   applyAspectRatio();
   document.querySelector('#preset').value = 'custom';
+  resetCropSelection();
+  syncCropEditor();
 });
-document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', syncConditionalOptions));
+document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', () => {
+  resetCropSelection();
+  syncConditionalOptions();
+}));
 document.querySelector('#background').addEventListener('change', syncConditionalOptions);
 document.querySelector('#format').addEventListener('change', syncConditionalOptions);
 document.querySelector('#quality').addEventListener('input', (event) => {
@@ -119,6 +137,7 @@ function syncConditionalOptions() {
   if (mode === 'fit' && document.querySelector('#format').value === 'jpeg' && document.querySelector('#background').value === 'transparent') {
     document.querySelector('#background').value = 'black';
   }
+  syncCropEditor();
 }
 syncConditionalOptions();
 syncAspectRatioFromDimensions();
@@ -150,6 +169,82 @@ function syncAspectRatioFromDimensions() {
   aspectRatio.value = matchingRatio ? matchingRatio.value : 'free';
 }
 
+function resetCropSelection() {
+  if (!sourcePreview.naturalWidth || !sourcePreview.naturalHeight) return;
+  const targetWidth = Number(widthInput.value);
+  const targetHeight = Number(heightInput.value);
+  if (!targetWidth || !targetHeight) return;
+  const sourceAspect = sourcePreview.naturalWidth / sourcePreview.naturalHeight;
+  const targetAspect = targetWidth / targetHeight;
+  if (sourceAspect > targetAspect) {
+    const width = targetAspect / sourceAspect;
+    cropState = { x: (1 - width) / 2, y: 0, width, height: 1 };
+  } else {
+    const height = sourceAspect / targetAspect;
+    cropState = { x: 0, y: (1 - height) / 2, width: 1, height };
+  }
+}
+
+function syncCropEditor() {
+  const cropMode = form.elements.mode.value === 'crop';
+  if (!cropMode || sourcePreview.hidden || !sourcePreview.naturalWidth || !cropState) {
+    cropEditor.hidden = true;
+    return;
+  }
+  const sourceAspect = sourcePreview.naturalWidth / sourcePreview.naturalHeight;
+  const containerWidth = sourceWrap.clientWidth;
+  const containerHeight = sourceWrap.clientHeight;
+  const width = Math.min(containerWidth, containerHeight * sourceAspect);
+  const height = width / sourceAspect;
+  cropEditor.style.width = `${width}px`;
+  cropEditor.style.height = `${height}px`;
+  cropEditor.style.left = `${(containerWidth - width) / 2}px`;
+  cropEditor.style.top = `${(containerHeight - height) / 2}px`;
+  cropSelection.style.left = `${cropState.x * 100}%`;
+  cropSelection.style.top = `${cropState.y * 100}%`;
+  cropSelection.style.width = `${cropState.width * 100}%`;
+  cropSelection.style.height = `${cropState.height * 100}%`;
+  cropEditor.hidden = false;
+}
+
+cropEditor.addEventListener('pointerdown', (event) => {
+  if (!cropState) return;
+  const point = cropPoint(event);
+  const inside = point.x >= cropState.x && point.x <= cropState.x + cropState.width && point.y >= cropState.y && point.y <= cropState.y + cropState.height;
+  if (!inside) {
+    cropState.x = clamp(point.x - cropState.width / 2, 0, 1 - cropState.width);
+    cropState.y = clamp(point.y - cropState.height / 2, 0, 1 - cropState.height);
+  }
+  cropDrag = { pointerId: event.pointerId, x: point.x - cropState.x, y: point.y - cropState.y };
+  cropEditor.setPointerCapture(event.pointerId);
+  syncCropEditor();
+});
+cropEditor.addEventListener('pointermove', (event) => {
+  if (!cropDrag || cropDrag.pointerId !== event.pointerId || !cropState) return;
+  const point = cropPoint(event);
+  cropState.x = clamp(point.x - cropDrag.x, 0, 1 - cropState.width);
+  cropState.y = clamp(point.y - cropDrag.y, 0, 1 - cropState.height);
+  syncCropEditor();
+});
+cropEditor.addEventListener('pointerup', endCropDrag);
+cropEditor.addEventListener('pointercancel', endCropDrag);
+window.addEventListener('resize', syncCropEditor);
+
+function endCropDrag(event) {
+  if (!cropDrag || cropDrag.pointerId !== event.pointerId) return;
+  cropDrag = undefined;
+  cropEditor.releasePointerCapture(event.pointerId);
+}
+
+function cropPoint(event) {
+  const bounds = cropEditor.getBoundingClientRect();
+  return { x: clamp((event.clientX - bounds.left) / bounds.width, 0, 1), y: clamp((event.clientY - bounds.top) / bounds.height, 0, 1) };
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   clearMessage(formError);
@@ -167,6 +262,12 @@ form.addEventListener('submit', async (event) => {
   try {
     const data = new FormData(form);
     data.set('file', selectedFile, selectedFile.name);
+    if (form.elements.mode.value === 'crop' && cropState) {
+      data.set('cropLeft', cropState.x.toFixed(6));
+      data.set('cropTop', cropState.y.toFixed(6));
+      data.set('cropWidth', cropState.width.toFixed(6));
+      data.set('cropHeight', cropState.height.toFixed(6));
+    }
     if (data.get('background') === 'custom') data.set('background', document.querySelector('#custom-color').value);
     data.set('stripMetadata', String(form.elements.stripMetadata.checked));
     const response = await fetch('/api/resize', { method: 'POST', body: data });

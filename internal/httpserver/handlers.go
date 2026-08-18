@@ -108,13 +108,52 @@ func parseRequest(r *http.Request) (image.Request, error) {
 			return image.Request{}, fmt.Errorf("invalid stripMetadata")
 		}
 	}
+	manualCrop, err := parseManualCrop(r)
+	if err != nil {
+		return image.Request{}, err
+	}
 	return image.Request{
 		Width: width, Height: height, Mode: r.FormValue("mode"), Format: r.FormValue("format"), Quality: quality,
 		CropX:         defaultValue(r.FormValue("cropX"), "center"),
 		CropY:         defaultValue(r.FormValue("cropY"), "center"),
+		ManualCrop:    manualCrop.enabled,
+		CropLeft:      manualCrop.left,
+		CropTop:       manualCrop.top,
+		CropWidth:     manualCrop.width,
+		CropHeight:    manualCrop.height,
 		Background:    defaultValue(r.FormValue("background"), "black"),
 		StripMetadata: stripMetadata,
 	}, nil
+}
+
+type manualCrop struct {
+	enabled                  bool
+	left, top, width, height float64
+}
+
+func parseManualCrop(r *http.Request) (manualCrop, error) {
+	values := []string{r.FormValue("cropLeft"), r.FormValue("cropTop"), r.FormValue("cropWidth"), r.FormValue("cropHeight")}
+	empty := 0
+	for _, value := range values {
+		if value == "" {
+			empty++
+		}
+	}
+	if empty == len(values) {
+		return manualCrop{}, nil
+	}
+	if empty != 0 {
+		return manualCrop{}, fmt.Errorf("incomplete manual crop")
+	}
+	parsed := make([]float64, len(values))
+	for i, value := range values {
+		parsedValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return manualCrop{}, fmt.Errorf("invalid manual crop")
+		}
+		parsed[i] = parsedValue
+	}
+	return manualCrop{enabled: true, left: parsed[0], top: parsed[1], width: parsed[2], height: parsed[3]}, nil
 }
 
 func parseIntField(r *http.Request, name string) (int, error) {
@@ -144,7 +183,7 @@ func processError(err error) (int, string) {
 	switch {
 	case errors.Is(err, image.ErrInvalidDimensions):
 		return http.StatusBadRequest, "Die Zielaufloesung ist ungueltig oder zu gross."
-	case errors.Is(err, image.ErrInvalidMode), errors.Is(err, image.ErrInvalidFormat), errors.Is(err, image.ErrInvalidQuality), errors.Is(err, image.ErrInvalidCrop), errors.Is(err, image.ErrInvalidBackground):
+	case errors.Is(err, image.ErrInvalidMode), errors.Is(err, image.ErrInvalidFormat), errors.Is(err, image.ErrInvalidQuality), errors.Is(err, image.ErrInvalidCrop), errors.Is(err, image.ErrInvalidManualCrop), errors.Is(err, image.ErrInvalidBackground):
 		return http.StatusBadRequest, "Die gewaehlten Verarbeitungseinstellungen sind ungueltig."
 	case errors.Is(err, image.ErrTooManyPixels):
 		return http.StatusRequestEntityTooLarge, "Das Bild hat zu viele Pixel."
