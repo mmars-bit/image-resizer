@@ -40,7 +40,11 @@ func (p *Processor) Process(input []byte, req Request) (Result, error) {
 
 	switch req.Mode {
 	case ModeStretch:
-		err = img.ResizeWithVScale(float64(req.Width)/float64(inputWidth), float64(req.Height)/float64(inputHeight), vips.KernelLanczos3)
+		if req.ManualCrop {
+			err = manualCropAndResize(img, req)
+		} else {
+			err = img.ResizeWithVScale(float64(req.Width)/float64(inputWidth), float64(req.Height)/float64(inputHeight), vips.KernelLanczos3)
+		}
 	case ModeCrop:
 		err = crop(img, req)
 	case ModeFit:
@@ -49,7 +53,7 @@ func (p *Processor) Process(input []byte, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("transform image: %w", err)
 	}
-	if img.Width() != req.Width || img.Height() != req.Height {
+	if !(req.Mode == ModeCrop && req.ManualCrop) && (img.Width() != req.Width || img.Height() != req.Height) {
 		return Result{}, fmt.Errorf("transform image: unexpected output size %dx%d", img.Width(), img.Height())
 	}
 
@@ -64,7 +68,7 @@ func (p *Processor) Process(input []byte, req Request) (Result, error) {
 	}
 	return Result{
 		Data: data, ContentType: contentType, Extension: extension,
-		Width: req.Width, Height: req.Height, InputWidth: inputWidth, InputHeight: inputHeight,
+		Width: img.Width(), Height: img.Height(), InputWidth: inputWidth, InputHeight: inputHeight,
 	}, nil
 }
 
@@ -108,7 +112,7 @@ func validManualCrop(req Request) bool {
 			return false
 		}
 	}
-	return req.Mode == ModeCrop && req.CropLeft >= 0 && req.CropTop >= 0 && req.CropLeft < 1 && req.CropTop < 1 && req.CropWidth > 0 && req.CropHeight > 0 && req.CropWidth <= 1 && req.CropHeight <= 1 && req.CropLeft+req.CropWidth <= 1 && req.CropTop+req.CropHeight <= 1
+	return (req.Mode == ModeCrop || req.Mode == ModeStretch) && req.CropLeft >= 0 && req.CropTop >= 0 && req.CropLeft < 1 && req.CropTop < 1 && req.CropWidth > 0 && req.CropHeight > 0 && req.CropWidth <= 1 && req.CropHeight <= 1 && req.CropLeft+req.CropWidth <= 1 && req.CropTop+req.CropHeight <= 1
 }
 
 func crop(img *vips.ImageRef, req Request) error {
@@ -125,16 +129,24 @@ func crop(img *vips.ImageRef, req Request) error {
 }
 
 func manualCrop(img *vips.ImageRef, req Request) error {
-	left := int(math.Floor(req.CropLeft * float64(img.Width())))
-	top := int(math.Floor(req.CropTop * float64(img.Height())))
-	right := min(img.Width(), max(left+1, int(math.Ceil((req.CropLeft+req.CropWidth)*float64(img.Width())))))
-	bottom := min(img.Height(), max(top+1, int(math.Ceil((req.CropTop+req.CropHeight)*float64(img.Height())))))
-	width := right - left
-	height := bottom - top
+	left, top, width, height := manualCropArea(img, req)
+	return img.ExtractArea(left, top, width, height)
+}
+
+func manualCropAndResize(img *vips.ImageRef, req Request) error {
+	left, top, width, height := manualCropArea(img, req)
 	if err := img.ExtractArea(left, top, width, height); err != nil {
 		return err
 	}
 	return img.ResizeWithVScale(float64(req.Width)/float64(width), float64(req.Height)/float64(height), vips.KernelLanczos3)
+}
+
+func manualCropArea(img *vips.ImageRef, req Request) (int, int, int, int) {
+	left := int(math.Floor(req.CropLeft * float64(img.Width())))
+	top := int(math.Floor(req.CropTop * float64(img.Height())))
+	right := min(img.Width(), max(left+1, int(math.Ceil((req.CropLeft+req.CropWidth)*float64(img.Width())))))
+	bottom := min(img.Height(), max(top+1, int(math.Ceil((req.CropTop+req.CropHeight)*float64(img.Height())))))
+	return left, top, right - left, bottom - top
 }
 
 func fit(img *vips.ImageRef, req Request) error {

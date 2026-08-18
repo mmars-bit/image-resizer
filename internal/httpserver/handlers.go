@@ -74,6 +74,8 @@ func (s *Server) resize(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", result.ContentType)
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
 	w.Header().Set("Content-Length", strconv.Itoa(len(result.Data)))
+	w.Header().Set("X-Image-Width", strconv.Itoa(result.Width))
+	w.Header().Set("X-Image-Height", strconv.Itoa(result.Height))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(result.Data)
 	s.logger.Info("image resized", "duration", time.Since(started), "input_width", result.InputWidth, "input_height", result.InputHeight, "output_width", result.Width, "output_height", result.Height, "format", req.Format)

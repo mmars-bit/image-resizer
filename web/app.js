@@ -128,7 +128,11 @@ document.querySelector('#quality').addEventListener('input', (event) => {
 
 function syncConditionalOptions() {
   const mode = form.elements.mode.value;
-  document.querySelector('#crop-options').hidden = mode !== 'crop';
+  const cropEnabled = mode === 'crop' || mode === 'stretch';
+  document.querySelector('#crop-options').hidden = !cropEnabled;
+  document.querySelector('#crop-help').textContent = mode === 'crop'
+    ? 'Ziehen Sie in der Originalvorschau einen freien Rahmen. Der Ausschnitt wird in seiner nativen Aufloesung exportiert.'
+    : 'Ziehen Sie einen freien Rahmen. Der Ausschnitt wird auf die eingestellte Zielaufloesung gedehnt.';
   document.querySelector('#fit-options').hidden = mode !== 'fit';
   const isCustom = document.querySelector('#background').value === 'custom';
   document.querySelector('#custom-color-wrap').hidden = mode !== 'fit' || !isCustom;
@@ -171,23 +175,12 @@ function syncAspectRatioFromDimensions() {
 
 function resetCropSelection() {
   if (!sourcePreview.naturalWidth || !sourcePreview.naturalHeight) return;
-  const targetWidth = Number(widthInput.value);
-  const targetHeight = Number(heightInput.value);
-  if (!targetWidth || !targetHeight) return;
-  const sourceAspect = sourcePreview.naturalWidth / sourcePreview.naturalHeight;
-  const targetAspect = targetWidth / targetHeight;
-  if (sourceAspect > targetAspect) {
-    const width = targetAspect / sourceAspect;
-    cropState = { x: (1 - width) / 2, y: 0, width, height: 1 };
-  } else {
-    const height = sourceAspect / targetAspect;
-    cropState = { x: 0, y: (1 - height) / 2, width: 1, height };
-  }
+  cropState = { x: 0, y: 0, width: 1, height: 1 };
 }
 
 function syncCropEditor() {
-  const cropMode = form.elements.mode.value === 'crop';
-  if (!cropMode || sourcePreview.hidden || !sourcePreview.naturalWidth || !cropState) {
+  const cropEnabled = form.elements.mode.value === 'crop' || form.elements.mode.value === 'stretch';
+  if (!cropEnabled || sourcePreview.hidden || !sourcePreview.naturalWidth || !cropState) {
     cropEditor.hidden = true;
     return;
   }
@@ -208,22 +201,20 @@ function syncCropEditor() {
 }
 
 cropEditor.addEventListener('pointerdown', (event) => {
-  if (!cropState) return;
+  if (!sourcePreview.naturalWidth) return;
   const point = cropPoint(event);
-  const inside = point.x >= cropState.x && point.x <= cropState.x + cropState.width && point.y >= cropState.y && point.y <= cropState.y + cropState.height;
-  if (!inside) {
-    cropState.x = clamp(point.x - cropState.width / 2, 0, 1 - cropState.width);
-    cropState.y = clamp(point.y - cropState.height / 2, 0, 1 - cropState.height);
-  }
-  cropDrag = { pointerId: event.pointerId, x: point.x - cropState.x, y: point.y - cropState.y };
+  cropState = { x: point.x, y: point.y, width: 0, height: 0 };
+  cropDrag = { pointerId: event.pointerId, startX: point.x, startY: point.y };
   cropEditor.setPointerCapture(event.pointerId);
   syncCropEditor();
 });
 cropEditor.addEventListener('pointermove', (event) => {
   if (!cropDrag || cropDrag.pointerId !== event.pointerId || !cropState) return;
   const point = cropPoint(event);
-  cropState.x = clamp(point.x - cropDrag.x, 0, 1 - cropState.width);
-  cropState.y = clamp(point.y - cropDrag.y, 0, 1 - cropState.height);
+  cropState.x = Math.min(cropDrag.startX, point.x);
+  cropState.y = Math.min(cropDrag.startY, point.y);
+  cropState.width = Math.abs(point.x - cropDrag.startX);
+  cropState.height = Math.abs(point.y - cropDrag.startY);
   syncCropEditor();
 });
 cropEditor.addEventListener('pointerup', endCropDrag);
@@ -234,6 +225,8 @@ function endCropDrag(event) {
   if (!cropDrag || cropDrag.pointerId !== event.pointerId) return;
   cropDrag = undefined;
   cropEditor.releasePointerCapture(event.pointerId);
+  if (cropState.width < 0.002 || cropState.height < 0.002) resetCropSelection();
+  syncCropEditor();
 }
 
 function cropPoint(event) {
@@ -262,7 +255,7 @@ form.addEventListener('submit', async (event) => {
   try {
     const data = new FormData(form);
     data.set('file', selectedFile, selectedFile.name);
-    if (form.elements.mode.value === 'crop' && cropState) {
+    if ((form.elements.mode.value === 'crop' || form.elements.mode.value === 'stretch') && cropState) {
       data.set('cropLeft', cropState.x.toFixed(6));
       data.set('cropTop', cropState.y.toFixed(6));
       data.set('cropWidth', cropState.width.toFixed(6));
@@ -283,7 +276,9 @@ form.addEventListener('submit', async (event) => {
     const name = filenameFromResponse(response.headers.get('content-disposition')) || outputName(selectedFile.name, width, height, form.elements.format.value);
     download.href = resultURL;
     download.download = name;
-    document.querySelector('#result-details').textContent = `${width} x ${height} px / ${form.elements.format.value.toUpperCase()} / ${formatBytes(blob.size)}`;
+    const outputWidth = Number(response.headers.get('x-image-width')) || width;
+    const outputHeight = Number(response.headers.get('x-image-height')) || height;
+    document.querySelector('#result-details').textContent = `${outputWidth} x ${outputHeight} px / ${form.elements.format.value.toUpperCase()} / ${formatBytes(blob.size)}`;
     resultPanel.hidden = false;
     resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (error) {
