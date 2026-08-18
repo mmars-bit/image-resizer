@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bilder im Browser hochladen, skalieren, zuschneiden und konvertieren.">
+  <title>Image Resizer</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p class="eyebrow">Lokale Bildverarbeitung</p>
+      <h1>Image Resizer</h1>
+      <p>Skalieren, zuschneiden und konvertieren. Dateien werden nur f&uuml;r die Verarbeitung im Speicher gehalten.</p>
+    </header>
+
+    <section class="panel upload-panel" aria-labelledby="upload-heading">
+      <h2 id="upload-heading">Bild hochladen</h2>
+      <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Bilddatei auswaehlen oder hier ablegen">
+        <input id="file" type="file" accept="image/*,.heic,.heif,.avif" hidden>
+        <div class="drop-icon" aria-hidden="true">+</div>
+        <strong>Bild hier hineinziehen</strong>
+        <span>oder</span>
+        <button id="choose-file" class="button secondary" type="button">Datei ausw&auml;hlen</button>
+        <small>Ein Bild aus der Zwischenablage kann ebenfalls eingef&uuml;gt werden.</small>
+      </div>
+      <p id="upload-error" class="notice error" hidden></p>
+    </section>
+
+    <form id="resize-form" novalidate>
+      <div class="workspace">
+        <section class="panel source-panel" aria-labelledby="source-heading">
+          <div class="section-title">
+            <h2 id="source-heading">Original</h2>
+            <span id="file-status" class="status">Kein Bild</span>
+          </div>
+          <div id="source-preview-wrap" class="preview empty">
+            <img id="source-preview" alt="Vorschau des Originalbilds" hidden>
+            <span id="source-placeholder">Noch kein Bild ausgew&auml;hlt</span>
+          </div>
+          <dl id="source-details" class="details" hidden>
+            <div><dt>Datei</dt><dd id="source-name"></dd></div>
+            <div><dt>Aufl&ouml;sung</dt><dd id="source-resolution"></dd></div>
+            <div><dt>Format</dt><dd id="source-format"></dd></div>
+            <div><dt>Gr&ouml;&szlig;e</dt><dd id="source-size"></dd></div>
+          </dl>
+        </section>
+
+        <section class="panel settings-panel" aria-labelledby="settings-heading">
+          <h2 id="settings-heading">Einstellungen</h2>
+          <div class="field-grid dimensions">
+            <label>Breite <input name="width" id="width" type="number" min="1" max="16384" value="1920" required inputmode="numeric"></label>
+            <label>H&ouml;he <input name="height" id="height" type="number" min="1" max="16384" value="1080" required inputmode="numeric"></label>
+          </div>
+          <label>Preset
+            <select id="preset">
+              <option value="1920x1080" selected>Full HD (1920 x 1080)</option>
+              <option value="1280x720">HD (1280 x 720)</option>
+              <option value="2560x1440">QHD (2560 x 1440)</option>
+              <option value="3840x2160">4K (3840 x 2160)</option>
+              <option value="1080x1080">Quadrat (1080 x 1080)</option>
+              <option value="1080x1920">Hochformat (1080 x 1920)</option>
+              <option value="custom">Benutzerdefiniert</option>
+            </select>
+          </label>
+
+          <fieldset>
+            <legend>Modus</legend>
+            <label class="radio"><input type="radio" name="mode" value="crop" checked> <span><strong>Crop / Cover</strong><small>F&uuml;llt die Zielgr&ouml;&szlig;e und schneidet bei Bedarf zu.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="stretch"> <span><strong>Stretch</strong><small>Dehnt das Bild exakt auf die Zielgr&ouml;&szlig;e.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="fit"> <span><strong>Fit / Contain</strong><small>Zeigt das ganze Bild mit einem Hintergrund.</small></span></label>
+          </fieldset>
+
+          <div id="crop-options" class="conditional">
+            <div class="field-grid">
+              <label>Crop horizontal<select name="cropX"><option value="left">Links</option><option value="center" selected>Mitte</option><option value="right">Rechts</option></select></label>
+              <label>Crop vertikal<select name="cropY"><option value="top">Oben</option><option value="center" selected>Mitte</option><option value="bottom">Unten</option></select></label>
+            </div>
+          </div>
+          <div id="fit-options" class="conditional" hidden>
+            <label>Hintergrund<select name="background" id="background"><option value="black" selected>Schwarz</option><option value="white">Wei&szlig;</option><option value="transparent">Transparent</option><option value="custom">Eigene Farbe</option></select></label>
+            <label id="custom-color-wrap" hidden>Eigene Farbe<input id="custom-color" type="color" value="#2b2b36"></label>
+          </div>
+
+          <div class="field-grid">
+            <label>Ausgabeformat<select name="format" id="format"><option value="webp" selected>WebP</option><option value="jpeg">JPEG</option><option value="png">PNG</option><option value="avif">AVIF</option></select></label>
+            <label id="quality-wrap">Qualit&auml;t <output id="quality-value">85</output><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
+          </div>
+          <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
+          <p id="form-error" class="notice error" hidden></p>
+          <button id="submit" class="button primary" type="submit" disabled>Bild erstellen</button>
+          <span id="loading" class="loading" hidden aria-live="polite">Bild wird verarbeitet</span>
+        </section>
+      </div>
+    </form>
+
+    <section id="result-panel" class="panel result-panel" aria-labelledby="result-heading" hidden>
+      <div class="section-title"><h2 id="result-heading">Ergebnis</h2><span class="status success">Bereit</span></div>
+      <div class="result-layout">
+        <div class="preview"><img id="result-preview" alt="Vorschau des bearbeiteten Bilds"></div>
+        <div class="result-actions">
+          <p id="result-details"></p>
+          <a id="download" class="button primary" download>Download</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

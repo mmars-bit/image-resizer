@@ -1,0 +1,28 @@
+FROM golang:1.25-trixie AS build
+
+WORKDIR /src
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go test ./...
+RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/image-resizer ./cmd/server
+
+FROM debian:trixie-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libvips42t64 \
+    libheif-plugins-all \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --no-create-home app
+
+COPY --from=build /out/image-resizer /usr/local/bin/image-resizer
+USER app
+EXPOSE 8080
+ENV PORT=8080
+ENTRYPOINT ["/usr/local/bin/image-resizer"]
