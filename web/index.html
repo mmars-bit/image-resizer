@@ -25,7 +25,7 @@
         <button id="choose-file" class="button secondary" type="button">Datei ausw&auml;hlen</button>
         <small>Ein Bild aus der Zwischenablage kann ebenfalls eingef&uuml;gt werden.</small>
       </div>
-      <p id="upload-error" class="notice error" hidden></p>
+      <p id="upload-error" class="notice error" role="alert" hidden></p>
     </section>
 
     <form id="resize-form" novalidate>
@@ -101,7 +101,7 @@
             <label id="quality-wrap">Qualit&auml;t <output id="quality-value">85</output><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
           </div>
           <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
-          <p id="form-error" class="notice error" hidden></p>
+          <p id="form-error" class="notice error" role="alert" hidden></p>
           <div class="form-actions">
             <button class="button primary" type="submit" data-submit disabled>Bild erstellen</button>
             <button id="new-image" class="button secondary" type="button" hidden>Neues Bild</button>
@@ -112,15 +112,16 @@
     </form>
 
     <section id="result-panel" class="panel result-panel" aria-labelledby="result-heading" hidden>
-      <div class="section-title"><h2 id="result-heading">Ergebnis</h2><span class="status success">Bereit</span></div>
+      <div class="section-title"><h2 id="result-heading" tabindex="-1">Ergebnis</h2><span class="status success">Bereit</span></div>
       <div class="result-layout">
         <div class="preview"><img id="result-preview" alt="Vorschau des bearbeiteten Bilds"></div>
         <div class="result-actions">
           <p id="result-details"></p>
-          <a id="download" class="button primary" download>Download</a>
+          <a id="download" class="button primary" download>Herunterladen</a>
         </div>
       </div>
     </section>
+    <p id="result-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
   </main>
   <script src="/app.js" defer></script>
 </body>

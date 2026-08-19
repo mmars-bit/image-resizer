@@ -14,6 +14,7 @@ const formError = document.querySelector('#form-error');
 const resultPanel = document.querySelector('#result-panel');
 const resultPreview = document.querySelector('#result-preview');
 const download = document.querySelector('#download');
+const resultStatus = document.querySelector('#result-status');
 const cropEditor = document.querySelector('#crop-editor');
 const cropSelection = document.querySelector('#crop-selection');
 const resetCrop = document.querySelector('#reset-crop');
@@ -24,6 +25,51 @@ let cropState;
 let cropDrag;
 let cropHoverPoint;
 let pageDragDepth = 0;
+const settingsStorageKey = 'image-resizer.settings';
+
+function saveSettings() {
+  try {
+    localStorage.setItem(settingsStorageKey, JSON.stringify({
+      width: widthInput.value,
+      height: heightInput.value,
+      aspectRatio: aspectRatio.value,
+      preset: document.querySelector('#preset').value,
+      mode: form.elements.mode.value,
+      background: document.querySelector('#background').value,
+      customColor: document.querySelector('#custom-color').value,
+      format: document.querySelector('#format').value,
+      quality: document.querySelector('#quality').value,
+      stripMetadata: form.elements.stripMetadata.checked,
+    }));
+  } catch (_) { /* Storage is optional. */ }
+}
+
+function restoreSettings() {
+  try {
+    const settings = JSON.parse(localStorage.getItem(settingsStorageKey));
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return;
+    const validOption = (selector, value) => typeof value === 'string'
+      && [...document.querySelector(selector).options].some((option) => option.value === value);
+    const validDimension = (value, input) => Number.isInteger(Number(value))
+      && Number(value) >= Number(input.min) && Number(value) <= Number(input.max);
+    const quality = document.querySelector('#quality');
+
+    if (validDimension(settings.width, widthInput)) widthInput.value = settings.width;
+    if (validDimension(settings.height, heightInput)) heightInput.value = settings.height;
+    if (validOption('#aspect-ratio', settings.aspectRatio)) aspectRatio.value = settings.aspectRatio;
+    if (validOption('#preset', settings.preset)) document.querySelector('#preset').value = settings.preset;
+    if (['crop', 'stretch', 'fit'].includes(settings.mode)) form.elements.mode.value = settings.mode;
+    if (validOption('#background', settings.background)) document.querySelector('#background').value = settings.background;
+    if (typeof settings.customColor === 'string' && /^#[0-9a-f]{6}$/i.test(settings.customColor)) {
+      document.querySelector('#custom-color').value = settings.customColor;
+    }
+    if (validOption('#format', settings.format)) document.querySelector('#format').value = settings.format;
+    if (Number.isInteger(Number(settings.quality)) && Number(settings.quality) >= Number(quality.min) && Number(settings.quality) <= Number(quality.max)) {
+      quality.value = settings.quality;
+    }
+    if (typeof settings.stripMetadata === 'boolean') form.elements.stripMetadata.checked = settings.stripMetadata;
+  } catch (_) { /* Invalid or unavailable storage keeps the defaults. */ }
+}
 
 chooseFile.addEventListener('click', () => fileInput.click());
 dropZone.addEventListener('click', (event) => {
@@ -100,6 +146,7 @@ function selectFile(file) {
   download.removeAttribute('href');
   download.removeAttribute('download');
   document.querySelector('#result-details').textContent = '';
+  resultStatus.textContent = '';
   selectedFile = file;
   newImage.hidden = false;
   setSubmitDisabled(false);
@@ -153,6 +200,7 @@ function resetImage() {
   download.removeAttribute('href');
   download.removeAttribute('download');
   document.querySelector('#result-details').textContent = '';
+  resultStatus.textContent = '';
   newImage.hidden = true;
   setSubmitDisabled(true);
   clearMessage(uploadError);
@@ -168,41 +216,56 @@ const heightInput = document.querySelector('#height');
 const aspectRatio = document.querySelector('#aspect-ratio');
 
 document.querySelector('#preset').addEventListener('change', (event) => {
-  if (event.target.value === 'custom') return;
-  const [width, height] = event.target.value.split('x');
-  widthInput.value = width;
-  heightInput.value = height;
-  syncAspectRatioFromDimensions();
-  resetCropSelection();
-  syncCropEditor();
+  if (event.target.value !== 'custom') {
+    const [width, height] = event.target.value.split('x');
+    widthInput.value = width;
+    heightInput.value = height;
+    syncAspectRatioFromDimensions();
+    resetCropSelection();
+    syncCropEditor();
+  }
+  saveSettings();
 });
 widthInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   applyAspectRatio();
   resetCropSelection();
   syncCropEditor();
+  saveSettings();
 });
 heightInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   syncAspectRatioFromDimensions();
   resetCropSelection();
   syncCropEditor();
+  saveSettings();
 });
 aspectRatio.addEventListener('change', () => {
   applyAspectRatio();
   document.querySelector('#preset').value = 'custom';
   resetCropSelection();
   syncCropEditor();
+  saveSettings();
 });
 document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', () => {
   resetCropSelection();
   syncConditionalOptions();
+  saveSettings();
 }));
-document.querySelector('#background').addEventListener('change', syncConditionalOptions);
-document.querySelector('#format').addEventListener('change', syncConditionalOptions);
+document.querySelector('#background').addEventListener('change', () => {
+  syncConditionalOptions();
+  saveSettings();
+});
+document.querySelector('#custom-color').addEventListener('input', saveSettings);
+document.querySelector('#format').addEventListener('change', () => {
+  syncConditionalOptions();
+  saveSettings();
+});
 document.querySelector('#quality').addEventListener('input', (event) => {
   document.querySelector('#quality-value').textContent = event.target.value;
+  saveSettings();
 });
+form.elements.stripMetadata.addEventListener('change', saveSettings);
 
 function syncConditionalOptions() {
   const mode = form.elements.mode.value;
@@ -222,8 +285,9 @@ function syncConditionalOptions() {
   }
   syncCropEditor();
 }
+restoreSettings();
 syncConditionalOptions();
-syncAspectRatioFromDimensions();
+document.querySelector('#quality-value').textContent = document.querySelector('#quality').value;
 
 function applyAspectRatio() {
   if (aspectRatio.value === 'free' || !widthInput.value) return;
@@ -389,6 +453,7 @@ function clamp(value, minimum, maximum) {
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   clearMessage(formError);
+  resultStatus.textContent = '';
   if (!selectedFile) {
     showMessage(formError, 'Bitte waehlen Sie zuerst ein Bild aus.');
     return;
@@ -429,9 +494,11 @@ form.addEventListener('submit', async (event) => {
     download.download = name;
     const outputWidth = Number(response.headers.get('x-image-width')) || width;
     const outputHeight = Number(response.headers.get('x-image-height')) || height;
-    document.querySelector('#result-details').textContent = `${outputWidth} x ${outputHeight} px / ${form.elements.format.value.toUpperCase()} / ${formatBytes(blob.size)}`;
+    document.querySelector('#result-details').textContent = `${name} / ${outputWidth} x ${outputHeight} px / ${form.elements.format.value.toUpperCase()} / ${formatBytes(blob.size)}`;
     resultPanel.hidden = false;
     resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.querySelector('#result-heading').focus({ preventScroll: true });
+    resultStatus.textContent = `Bild erfolgreich erstellt: ${outputWidth} x ${outputHeight} Pixel, ${form.elements.format.value.toUpperCase()}, ${name}.`;
   } catch (error) {
     showMessage(formError, error.message);
   } finally {
