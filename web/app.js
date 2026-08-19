@@ -2,6 +2,7 @@ const form = document.querySelector('#resize-form');
 const fileInput = document.querySelector('#file');
 const dropZone = document.querySelector('#drop-zone');
 const chooseFile = document.querySelector('#choose-file');
+const newImage = document.querySelector('#new-image');
 const submitButtons = document.querySelectorAll('[data-submit]');
 const loading = document.querySelector('#loading');
 const sourcePreview = document.querySelector('#source-preview');
@@ -15,6 +16,7 @@ const resultPreview = document.querySelector('#result-preview');
 const download = document.querySelector('#download');
 const cropEditor = document.querySelector('#crop-editor');
 const cropSelection = document.querySelector('#crop-selection');
+const resetCrop = document.querySelector('#reset-crop');
 let selectedFile;
 let sourceURL;
 let resultURL;
@@ -33,6 +35,11 @@ dropZone.addEventListener('keydown', (event) => {
   }
 });
 fileInput.addEventListener('change', () => selectFile(fileInput.files[0]));
+newImage.addEventListener('click', resetImage);
+resetCrop.addEventListener('click', () => {
+  resetCropSelection();
+  syncCropEditor();
+});
 
 ['dragenter', 'dragover'].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
   event.preventDefault();
@@ -85,7 +92,15 @@ function selectFile(file) {
     showMessage(uploadError, 'Die Datei ist groesser als das Standardlimit von 50 MB.');
     return;
   }
+  resultPanel.hidden = true;
+  if (resultURL) URL.revokeObjectURL(resultURL);
+  resultURL = undefined;
+  resultPreview.removeAttribute('src');
+  download.removeAttribute('href');
+  download.removeAttribute('download');
+  document.querySelector('#result-details').textContent = '';
   selectedFile = file;
+  newImage.hidden = false;
   setSubmitDisabled(false);
   document.querySelector('#file-status').textContent = 'Ausgewaehlt';
   document.querySelector('#source-name').textContent = file.name;
@@ -110,6 +125,37 @@ function selectFile(file) {
     cropEditor.hidden = true;
   };
   sourcePreview.src = sourceURL;
+}
+
+function resetImage() {
+  if (sourceURL) URL.revokeObjectURL(sourceURL);
+  if (resultURL) URL.revokeObjectURL(resultURL);
+  selectedFile = undefined;
+  sourceURL = undefined;
+  resultURL = undefined;
+  cropState = undefined;
+  cropDrag = undefined;
+  fileInput.value = '';
+  sourcePreview.onload = null;
+  sourcePreview.onerror = null;
+  sourcePreview.removeAttribute('src');
+  sourcePreview.hidden = true;
+  sourcePlaceholder.textContent = 'Noch kein Bild ausgew\u00e4hlt';
+  sourcePlaceholder.hidden = false;
+  sourceWrap.classList.add('empty');
+  cropEditor.hidden = true;
+  sourceDetails.hidden = true;
+  document.querySelector('#file-status').textContent = 'Kein Bild';
+  document.querySelectorAll('#source-details dd').forEach((detail) => { detail.textContent = ''; });
+  resultPanel.hidden = true;
+  resultPreview.removeAttribute('src');
+  download.removeAttribute('href');
+  download.removeAttribute('download');
+  document.querySelector('#result-details').textContent = '';
+  newImage.hidden = true;
+  setSubmitDisabled(true);
+  clearMessage(uploadError);
+  clearMessage(formError);
 }
 
 function hasFiles(event) {
@@ -162,8 +208,8 @@ function syncConditionalOptions() {
   const cropEnabled = mode === 'crop' || mode === 'stretch';
   document.querySelector('#crop-options').hidden = !cropEnabled;
   document.querySelector('#crop-help').textContent = mode === 'crop'
-    ? 'Ziehen Sie in der Originalvorschau einen freien Rahmen. Der Ausschnitt wird in seiner nativen Aufloesung exportiert.'
-    : 'Ziehen Sie einen freien Rahmen. Der Ausschnitt wird auf die eingestellte Zielaufloesung gedehnt.';
+    ? 'Ziehen Sie ausserhalb der Auswahl einen freien Rahmen. Ziehen Sie innerhalb zum Verschieben oder an den Ecken zum Skalieren. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird in seiner nativen Aufloesung exportiert.'
+    : 'Ziehen Sie ausserhalb der Auswahl einen freien Rahmen. Ziehen Sie innerhalb zum Verschieben oder an den Ecken zum Skalieren. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird auf die eingestellte Zielaufloesung gedehnt.';
   setTargetSizeEnabled(mode !== 'crop');
   document.querySelector('#fit-options').hidden = mode !== 'fit';
   const isCustom = document.querySelector('#background').value === 'custom';
@@ -233,20 +279,37 @@ function syncCropEditor() {
 }
 
 cropEditor.addEventListener('pointerdown', (event) => {
-  if (!sourcePreview.naturalWidth) return;
+  if (!sourcePreview.naturalWidth || event.button !== 0) return;
   const point = cropPoint(event);
-  cropState = { x: point.x, y: point.y, width: 0, height: 0 };
-  cropDrag = { pointerId: event.pointerId, startX: point.x, startY: point.y };
+  const handle = event.target.closest('[data-crop-handle]');
+  const startState = { ...cropState };
+  const insideSelection = point.x >= cropState.x && point.x <= cropState.x + cropState.width
+    && point.y >= cropState.y && point.y <= cropState.y + cropState.height;
+  if (!handle && !insideSelection) cropState = { x: point.x, y: point.y, width: 0, height: 0 };
+  cropDrag = {
+    pointerId: event.pointerId,
+    action: handle ? handle.dataset.cropHandle : insideSelection ? 'move' : 'draw',
+    startX: point.x,
+    startY: point.y,
+    startState,
+  };
   cropEditor.setPointerCapture(event.pointerId);
   syncCropEditor();
 });
 cropEditor.addEventListener('pointermove', (event) => {
   if (!cropDrag || cropDrag.pointerId !== event.pointerId || !cropState) return;
   const point = cropPoint(event);
-  cropState.x = Math.min(cropDrag.startX, point.x);
-  cropState.y = Math.min(cropDrag.startY, point.y);
-  cropState.width = Math.abs(point.x - cropDrag.startX);
-  cropState.height = Math.abs(point.y - cropDrag.startY);
+  if (cropDrag.action === 'draw') {
+    cropState.x = Math.min(cropDrag.startX, point.x);
+    cropState.y = Math.min(cropDrag.startY, point.y);
+    cropState.width = Math.abs(point.x - cropDrag.startX);
+    cropState.height = Math.abs(point.y - cropDrag.startY);
+  } else if (cropDrag.action === 'move') {
+    cropState.x = clamp(cropDrag.startState.x + point.x - cropDrag.startX, 0, 1 - cropDrag.startState.width);
+    cropState.y = clamp(cropDrag.startState.y + point.y - cropDrag.startY, 0, 1 - cropDrag.startState.height);
+  } else {
+    resizeCropSelection(point);
+  }
   syncCropEditor();
 });
 cropEditor.addEventListener('pointerup', endCropDrag);
@@ -259,6 +322,33 @@ function endCropDrag(event) {
   cropEditor.releasePointerCapture(event.pointerId);
   if (cropState.width < 0.002 || cropState.height < 0.002) resetCropSelection();
   syncCropEditor();
+}
+
+function resizeCropSelection(point) {
+  const { action, startState } = cropDrag;
+  const right = startState.x + startState.width;
+  const bottom = startState.y + startState.height;
+  if (action === 'top-left') {
+    cropState.x = clamp(point.x, 0, right);
+    cropState.y = clamp(point.y, 0, bottom);
+    cropState.width = right - cropState.x;
+    cropState.height = bottom - cropState.y;
+  } else if (action === 'top-right') {
+    cropState.x = startState.x;
+    cropState.y = clamp(point.y, 0, bottom);
+    cropState.width = clamp(point.x, startState.x, 1) - startState.x;
+    cropState.height = bottom - cropState.y;
+  } else if (action === 'bottom-left') {
+    cropState.x = clamp(point.x, 0, right);
+    cropState.y = startState.y;
+    cropState.width = right - cropState.x;
+    cropState.height = clamp(point.y, startState.y, 1) - startState.y;
+  } else if (action === 'bottom-right') {
+    cropState.x = startState.x;
+    cropState.y = startState.y;
+    cropState.width = clamp(point.x, startState.x, 1) - startState.x;
+    cropState.height = clamp(point.y, startState.y, 1) - startState.y;
+  }
 }
 
 function cropPoint(event) {
@@ -325,6 +415,7 @@ form.addEventListener('submit', async (event) => {
 
 function setBusy(busy) {
   setSubmitDisabled(busy || !selectedFile);
+  newImage.disabled = busy;
   loading.hidden = !busy;
 }
 function setSubmitDisabled(disabled) {
