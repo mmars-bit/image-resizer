@@ -20,6 +20,7 @@ let sourceURL;
 let resultURL;
 let cropState;
 let cropDrag;
+let pageDragDepth = 0;
 
 chooseFile.addEventListener('click', () => fileInput.click());
 dropZone.addEventListener('click', (event) => {
@@ -41,7 +42,33 @@ fileInput.addEventListener('change', () => selectFile(fileInput.files[0]));
   event.preventDefault();
   dropZone.classList.remove('dragging');
 }));
-dropZone.addEventListener('drop', (event) => selectFile(event.dataTransfer.files[0]));
+dropZone.addEventListener('drop', (event) => {
+  event.stopPropagation();
+  pageDragDepth = 0;
+  document.body.classList.remove('page-dragging');
+  selectFile(event.dataTransfer.files[0]);
+});
+document.addEventListener('dragenter', (event) => {
+  if (!hasFiles(event)) return;
+  event.preventDefault();
+  pageDragDepth++;
+  document.body.classList.add('page-dragging');
+});
+document.addEventListener('dragover', (event) => {
+  if (hasFiles(event)) event.preventDefault();
+});
+document.addEventListener('dragleave', (event) => {
+  if (!hasFiles(event)) return;
+  pageDragDepth = Math.max(0, pageDragDepth - 1);
+  if (pageDragDepth === 0) document.body.classList.remove('page-dragging');
+});
+document.addEventListener('drop', (event) => {
+  if (!hasFiles(event)) return;
+  event.preventDefault();
+  pageDragDepth = 0;
+  document.body.classList.remove('page-dragging');
+  selectFile(event.dataTransfer.files[0]);
+});
 document.addEventListener('paste', (event) => {
   const item = [...event.clipboardData.items].find((entry) => entry.type.startsWith('image/'));
   if (item) selectFile(item.getAsFile());
@@ -83,6 +110,10 @@ function selectFile(file) {
     cropEditor.hidden = true;
   };
   sourcePreview.src = sourceURL;
+}
+
+function hasFiles(event) {
+  return event.dataTransfer && [...event.dataTransfer.types].includes('Files');
 }
 
 const widthInput = document.querySelector('#width');
