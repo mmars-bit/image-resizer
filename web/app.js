@@ -22,6 +22,7 @@ let sourceURL;
 let resultURL;
 let cropState;
 let cropDrag;
+let cropHoverPoint;
 let pageDragDepth = 0;
 
 chooseFile.addEventListener('click', () => fileInput.click());
@@ -208,8 +209,8 @@ function syncConditionalOptions() {
   const cropEnabled = mode === 'crop' || mode === 'stretch';
   document.querySelector('#crop-options').hidden = !cropEnabled;
   document.querySelector('#crop-help').textContent = mode === 'crop'
-    ? 'Ziehen Sie ausserhalb der Auswahl einen freien Rahmen. Ziehen Sie innerhalb zum Verschieben oder an den Ecken zum Skalieren. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird in seiner nativen Aufloesung exportiert.'
-    : 'Ziehen Sie ausserhalb der Auswahl einen freien Rahmen. Ziehen Sie innerhalb zum Verschieben oder an den Ecken zum Skalieren. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird auf die eingestellte Zielaufloesung gedehnt.';
+    ? 'Ziehen Sie einen freien Rahmen oder an den Ecken zum Skalieren. Halten Sie Umschalt gedrueckt und ziehen Sie innerhalb der Auswahl zum Verschieben. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird in seiner nativen Aufloesung exportiert.'
+    : 'Ziehen Sie einen freien Rahmen oder an den Ecken zum Skalieren. Halten Sie Umschalt gedrueckt und ziehen Sie innerhalb der Auswahl zum Verschieben. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird auf die eingestellte Zielaufloesung gedehnt.';
   setTargetSizeEnabled(mode !== 'crop');
   document.querySelector('#fit-options').hidden = mode !== 'fit';
   const isCustom = document.querySelector('#background').value === 'custom';
@@ -281,14 +282,17 @@ function syncCropEditor() {
 cropEditor.addEventListener('pointerdown', (event) => {
   if (!sourcePreview.naturalWidth || event.button !== 0) return;
   const point = cropPoint(event);
+  cropHoverPoint = point;
+  syncCropCursor(event.shiftKey);
   const handle = event.target.closest('[data-crop-handle]');
   const startState = { ...cropState };
   const insideSelection = point.x >= cropState.x && point.x <= cropState.x + cropState.width
     && point.y >= cropState.y && point.y <= cropState.y + cropState.height;
-  if (!handle && !insideSelection) cropState = { x: point.x, y: point.y, width: 0, height: 0 };
+  const moveSelection = event.shiftKey && insideSelection;
+  if (!handle && !moveSelection) cropState = { x: point.x, y: point.y, width: 0, height: 0 };
   cropDrag = {
     pointerId: event.pointerId,
-    action: handle ? handle.dataset.cropHandle : insideSelection ? 'move' : 'draw',
+    action: handle ? handle.dataset.cropHandle : moveSelection ? 'move' : 'draw',
     startX: point.x,
     startY: point.y,
     startState,
@@ -297,8 +301,12 @@ cropEditor.addEventListener('pointerdown', (event) => {
   syncCropEditor();
 });
 cropEditor.addEventListener('pointermove', (event) => {
-  if (!cropDrag || cropDrag.pointerId !== event.pointerId || !cropState) return;
   const point = cropPoint(event);
+  cropHoverPoint = point;
+  if (!cropDrag || cropDrag.pointerId !== event.pointerId || !cropState) {
+    syncCropCursor(event.shiftKey);
+    return;
+  }
   if (cropDrag.action === 'draw') {
     cropState.x = Math.min(cropDrag.startX, point.x);
     cropState.y = Math.min(cropDrag.startY, point.y);
@@ -311,9 +319,20 @@ cropEditor.addEventListener('pointermove', (event) => {
     resizeCropSelection(point);
   }
   syncCropEditor();
+  syncCropCursor(event.shiftKey);
 });
 cropEditor.addEventListener('pointerup', endCropDrag);
 cropEditor.addEventListener('pointercancel', endCropDrag);
+cropEditor.addEventListener('pointerleave', () => {
+  cropHoverPoint = undefined;
+  cropEditor.classList.remove('move-ready');
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Shift') syncCropCursor(true);
+});
+document.addEventListener('keyup', (event) => {
+  if (event.key === 'Shift') syncCropCursor(false);
+});
 window.addEventListener('resize', syncCropEditor);
 
 function endCropDrag(event) {
@@ -349,6 +368,13 @@ function resizeCropSelection(point) {
     cropState.width = clamp(point.x, startState.x, 1) - startState.x;
     cropState.height = clamp(point.y, startState.y, 1) - startState.y;
   }
+}
+
+function syncCropCursor(shiftKey) {
+  const insideSelection = cropHoverPoint && cropState
+    && cropHoverPoint.x >= cropState.x && cropHoverPoint.x <= cropState.x + cropState.width
+    && cropHoverPoint.y >= cropState.y && cropHoverPoint.y <= cropState.y + cropState.height;
+  cropEditor.classList.toggle('move-ready', Boolean(shiftKey && insideSelection));
 }
 
 function cropPoint(event) {
