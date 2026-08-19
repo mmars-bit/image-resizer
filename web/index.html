@@ -33,7 +33,10 @@
         <section class="panel source-panel" aria-labelledby="source-heading">
           <div class="section-title">
             <h2 id="source-heading">Original</h2>
-            <span id="file-status" class="status">Kein Bild</span>
+            <div class="section-actions">
+              <span id="file-status" class="status">Kein Bild</span>
+              <button class="button primary compact" type="submit" data-submit disabled>Bild erstellen</button>
+            </div>
           </div>
           <div id="source-preview-wrap" class="preview empty">
             <img id="source-preview" alt="Vorschau des Originalbilds" hidden>
@@ -52,31 +55,33 @@
 
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <h2 id="settings-heading">Einstellungen</h2>
-          <div class="field-grid dimensions">
-            <label>Breite <input name="width" id="width" type="number" min="1" max="16384" value="1920" required inputmode="numeric"></label>
-            <label>H&ouml;he <input name="height" id="height" type="number" min="1" max="16384" value="1080" required inputmode="numeric"></label>
+          <div id="target-size-settings">
+            <div class="field-grid dimensions">
+              <label>Breite <input name="width" id="width" type="number" min="1" max="16384" value="1920" required inputmode="numeric"></label>
+              <label>H&ouml;he <input name="height" id="height" type="number" min="1" max="16384" value="1080" required inputmode="numeric"></label>
+            </div>
+            <label>Zielseitenverh&auml;ltnis
+              <select id="aspect-ratio">
+                <option value="free" selected>Freie Aufl&ouml;sung</option>
+                <option value="16:9">16:9</option>
+                <option value="4:3">4:3</option>
+                <option value="3:2">3:2</option>
+                <option value="1:1">1:1</option>
+                <option value="9:16">9:16</option>
+              </select>
+            </label>
+            <label>Preset
+              <select id="preset">
+                <option value="1920x1080" selected>Full HD (1920 x 1080)</option>
+                <option value="1280x720">HD (1280 x 720)</option>
+                <option value="2560x1440">QHD (2560 x 1440)</option>
+                <option value="3840x2160">4K (3840 x 2160)</option>
+                <option value="1080x1080">Quadrat (1080 x 1080)</option>
+                <option value="1080x1920">Hochformat (1080 x 1920)</option>
+                <option value="custom">Benutzerdefiniert</option>
+              </select>
+            </label>
           </div>
-          <label>Zielseitenverh&auml;ltnis
-            <select id="aspect-ratio">
-              <option value="free" selected>Freie Aufl&ouml;sung</option>
-              <option value="16:9">16:9</option>
-              <option value="4:3">4:3</option>
-              <option value="3:2">3:2</option>
-              <option value="1:1">1:1</option>
-              <option value="9:16">9:16</option>
-            </select>
-          </label>
-          <label>Preset
-            <select id="preset">
-              <option value="1920x1080" selected>Full HD (1920 x 1080)</option>
-              <option value="1280x720">HD (1280 x 720)</option>
-              <option value="2560x1440">QHD (2560 x 1440)</option>
-              <option value="3840x2160">4K (3840 x 2160)</option>
-              <option value="1080x1080">Quadrat (1080 x 1080)</option>
-              <option value="1080x1920">Hochformat (1080 x 1920)</option>
-              <option value="custom">Benutzerdefiniert</option>
-            </select>
-          </label>
 
           <fieldset>
             <legend>Modus</legend>
@@ -99,7 +104,7 @@
           </div>
           <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
           <p id="form-error" class="notice error" hidden></p>
-          <button id="submit" class="button primary" type="submit" disabled>Bild erstellen</button>
+          <button class="button primary" type="submit" data-submit disabled>Bild erstellen</button>
           <span id="loading" class="loading" hidden aria-live="polite">Bild wird verarbeitet</span>
         </section>
       </div>

@@ -2,7 +2,7 @@ const form = document.querySelector('#resize-form');
 const fileInput = document.querySelector('#file');
 const dropZone = document.querySelector('#drop-zone');
 const chooseFile = document.querySelector('#choose-file');
-const submit = document.querySelector('#submit');
+const submitButtons = document.querySelectorAll('[data-submit]');
 const loading = document.querySelector('#loading');
 const sourcePreview = document.querySelector('#source-preview');
 const sourceWrap = document.querySelector('#source-preview-wrap');
@@ -86,7 +86,7 @@ function selectFile(file) {
     return;
   }
   selectedFile = file;
-  submit.disabled = false;
+  setSubmitDisabled(false);
   document.querySelector('#file-status').textContent = 'Ausgewaehlt';
   document.querySelector('#source-name').textContent = file.name;
   document.querySelector('#source-format').textContent = readableFormat(file);
@@ -164,6 +164,7 @@ function syncConditionalOptions() {
   document.querySelector('#crop-help').textContent = mode === 'crop'
     ? 'Ziehen Sie in der Originalvorschau einen freien Rahmen. Der Ausschnitt wird in seiner nativen Aufloesung exportiert.'
     : 'Ziehen Sie einen freien Rahmen. Der Ausschnitt wird auf die eingestellte Zielaufloesung gedehnt.';
+  setTargetSizeEnabled(mode !== 'crop');
   document.querySelector('#fit-options').hidden = mode !== 'fit';
   const isCustom = document.querySelector('#background').value === 'custom';
   document.querySelector('#custom-color-wrap').hidden = mode !== 'fit' || !isCustom;
@@ -286,6 +287,9 @@ form.addEventListener('submit', async (event) => {
   try {
     const data = new FormData(form);
     data.set('file', selectedFile, selectedFile.name);
+    // Disabled target-size controls in native Crop mode are still required by the API.
+    data.set('width', widthInput.value);
+    data.set('height', heightInput.value);
     if ((form.elements.mode.value === 'crop' || form.elements.mode.value === 'stretch') && cropState) {
       data.set('cropLeft', cropState.x.toFixed(6));
       data.set('cropTop', cropState.y.toFixed(6));
@@ -320,8 +324,16 @@ form.addEventListener('submit', async (event) => {
 });
 
 function setBusy(busy) {
-  submit.disabled = busy || !selectedFile;
+  setSubmitDisabled(busy || !selectedFile);
   loading.hidden = !busy;
+}
+function setSubmitDisabled(disabled) {
+  submitButtons.forEach((button) => { button.disabled = disabled; });
+}
+function setTargetSizeEnabled(enabled) {
+  const targetSettings = document.querySelector('#target-size-settings');
+  targetSettings.classList.toggle('is-disabled', !enabled);
+  targetSettings.querySelectorAll('input, select').forEach((control) => { control.disabled = !enabled; });
 }
 function showMessage(element, message) { element.textContent = message; element.hidden = false; }
 function clearMessage(element) { element.hidden = true; element.textContent = ''; }
