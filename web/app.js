@@ -33,6 +33,7 @@ function saveSettings() {
       width: widthInput.value,
       height: heightInput.value,
       aspectRatio: aspectRatio.value,
+      aspectRatioLocked: aspectRatioLock.getAttribute('aria-pressed') === 'true',
       preset: document.querySelector('#preset').value,
       mode: form.elements.mode.value,
       background: document.querySelector('#background').value,
@@ -57,6 +58,7 @@ function restoreSettings() {
     if (validDimension(settings.width, widthInput)) widthInput.value = settings.width;
     if (validDimension(settings.height, heightInput)) heightInput.value = settings.height;
     if (validOption('#aspect-ratio', settings.aspectRatio)) aspectRatio.value = settings.aspectRatio;
+    if (typeof settings.aspectRatioLocked === 'boolean') setAspectRatioLock(settings.aspectRatioLocked);
     if (validOption('#preset', settings.preset)) document.querySelector('#preset').value = settings.preset;
     if (['crop', 'stretch', 'fit'].includes(settings.mode)) form.elements.mode.value = settings.mode;
     if (validOption('#background', settings.background)) document.querySelector('#background').value = settings.background;
@@ -214,6 +216,8 @@ function hasFiles(event) {
 const widthInput = document.querySelector('#width');
 const heightInput = document.querySelector('#height');
 const aspectRatio = document.querySelector('#aspect-ratio');
+const aspectRatioLock = document.querySelector('#aspect-ratio-lock');
+let lockedAspectRatio;
 
 document.querySelector('#preset').addEventListener('change', (event) => {
   if (event.target.value !== 'custom') {
@@ -221,6 +225,7 @@ document.querySelector('#preset').addEventListener('change', (event) => {
     widthInput.value = width;
     heightInput.value = height;
     syncAspectRatioFromDimensions();
+    if (lockedAspectRatio) lockedAspectRatio = Number(width) / Number(height);
     resetCropSelection();
     syncCropEditor();
   }
@@ -228,23 +233,30 @@ document.querySelector('#preset').addEventListener('change', (event) => {
 });
 widthInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
-  applyAspectRatio();
+  if (lockedAspectRatio) syncLockedDimension(widthInput);
+  else applyAspectRatio();
   resetCropSelection();
   syncCropEditor();
   saveSettings();
 });
 heightInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
-  syncAspectRatioFromDimensions();
+  if (lockedAspectRatio) syncLockedDimension(heightInput);
+  else syncAspectRatioFromDimensions();
   resetCropSelection();
   syncCropEditor();
   saveSettings();
 });
 aspectRatio.addEventListener('change', () => {
   applyAspectRatio();
+  if (lockedAspectRatio) lockedAspectRatio = Number(widthInput.value) / Number(heightInput.value);
   document.querySelector('#preset').value = 'custom';
   resetCropSelection();
   syncCropEditor();
+  saveSettings();
+});
+aspectRatioLock.addEventListener('click', () => {
+  setAspectRatioLock(!lockedAspectRatio);
   saveSettings();
 });
 document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', () => {
@@ -299,6 +311,27 @@ function applyAspectRatio() {
     widthInput.value = Math.max(1, Math.floor(maximumHeight * widthPart / heightPart));
   }
   heightInput.value = Math.max(1, Math.round(Number(widthInput.value) * heightPart / widthPart));
+}
+
+function setAspectRatioLock(locked) {
+  if (locked) {
+    const width = Number(widthInput.value);
+    const height = Number(heightInput.value);
+    if (!width || !height) return;
+    lockedAspectRatio = width / height;
+  } else {
+    lockedAspectRatio = undefined;
+  }
+  aspectRatioLock.setAttribute('aria-pressed', String(locked));
+}
+
+function syncLockedDimension(changedInput) {
+  if (!lockedAspectRatio || !changedInput.value) return;
+  const otherInput = changedInput === widthInput ? heightInput : widthInput;
+  const requestedValue = changedInput === widthInput
+    ? Math.round(Number(changedInput.value) / lockedAspectRatio)
+    : Math.round(Number(changedInput.value) * lockedAspectRatio);
+  otherInput.value = clamp(requestedValue, Number(otherInput.min), Number(otherInput.max));
 }
 
 function syncAspectRatioFromDimensions() {
@@ -517,7 +550,7 @@ function setSubmitDisabled(disabled) {
 function setTargetSizeEnabled(enabled) {
   const targetSettings = document.querySelector('#target-size-settings');
   targetSettings.classList.toggle('is-disabled', !enabled);
-  targetSettings.querySelectorAll('input, select').forEach((control) => { control.disabled = !enabled; });
+  targetSettings.querySelectorAll('input, select, button').forEach((control) => { control.disabled = !enabled; });
 }
 function showMessage(element, message) { element.textContent = message; element.hidden = false; }
 function clearMessage(element) { element.hidden = true; element.textContent = ''; }
