@@ -52,22 +52,13 @@
 
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <h2 id="settings-heading">Einstellungen</h2>
-          <div id="target-size-settings">
+          <fieldset class="settings-group">
+            <legend>Zielgroesse</legend>
             <div class="field-grid dimensions">
               <label>Breite <input name="width" id="width" type="number" min="1" max="16384" value="1920" required inputmode="numeric"></label>
               <label>H&ouml;he <input name="height" id="height" type="number" min="1" max="16384" value="1080" required inputmode="numeric"></label>
               <button id="aspect-ratio-lock" class="aspect-ratio-lock" type="button" aria-pressed="false">Seitenverh&auml;ltnis sperren</button>
             </div>
-            <label>Zielseitenverh&auml;ltnis
-              <select id="aspect-ratio">
-                <option value="free" selected>Freie Aufl&ouml;sung</option>
-                <option value="16:9">16:9</option>
-                <option value="4:3">4:3</option>
-                <option value="3:2">3:2</option>
-                <option value="1:1">1:1</option>
-                <option value="9:16">9:16</option>
-              </select>
-            </label>
             <label>Preset
               <select id="preset">
                 <option value="1920x1080" selected>Full HD (1920 x 1080)</option>
@@ -79,29 +70,33 @@
                 <option value="custom">Benutzerdefiniert</option>
               </select>
             </label>
-          </div>
+          </fieldset>
 
-          <fieldset>
+          <fieldset class="settings-group">
             <legend>Modus</legend>
-            <label class="radio"><input type="radio" name="mode" value="crop"> <span><strong>Crop / Cover</strong><small>F&uuml;llt die Zielgr&ouml;&szlig;e und schneidet bei Bedarf zu.</small></span></label>
-            <label class="radio"><input type="radio" name="mode" value="stretch" checked> <span><strong>Stretch</strong><small>Dehnt das Bild exakt auf die Zielgr&ouml;&szlig;e.</small></span></label>
-            <label class="radio"><input type="radio" name="mode" value="fit"> <span><strong>Fit / Contain</strong><small>Zeigt das ganze Bild mit einem Hintergrund.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="crop"> <span><strong>Fuellen und zuschneiden</strong><small>F&uuml;llt die Zielgr&ouml;&szlig;e ohne Verzerrung. W&auml;hlen Sie den sichtbaren Bildausschnitt.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="stretch" checked> <span><strong>Exakt dehnen</strong><small>Dehnt das ganze Bild oder einen gew&auml;hlten Ausschnitt auf die Zielgr&ouml;&szlig;e.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="fit"> <span><strong>Einpassen</strong><small>Zeigt das ganze Bild innerhalb der Zielgr&ouml;&szlig;e mit Hintergrundfl&auml;che.</small></span></label>
           </fieldset>
 
           <div id="crop-options" class="conditional">
-            <p id="crop-help" class="crop-help">Ziehen Sie einen freien Rahmen oder an den Ecken zum Skalieren. Halten Sie Umschalt gedr&uuml;ckt und ziehen Sie innerhalb der Auswahl zum Verschieben. Auswahl zur&uuml;cksetzen stellt das ganze Bild wieder her.</p>
+            <p id="crop-help" class="crop-help">Der Rahmen folgt dem Zielseitenverh&auml;ltnis. Ziehen Sie ihn zum Verschieben oder die Ecken zum Anpassen.</p>
             <button id="reset-crop" class="button secondary compact crop-reset" type="button">Auswahl zur&uuml;cksetzen</button>
           </div>
           <div id="fit-options" class="conditional" hidden>
             <label>Hintergrund<select name="background" id="background"><option value="black" selected>Schwarz</option><option value="white">Wei&szlig;</option><option value="transparent">Transparent</option><option value="custom">Eigene Farbe</option></select></label>
             <label id="custom-color-wrap" hidden>Eigene Farbe<input id="custom-color" type="color" value="#2b2b36"></label>
+            <p id="background-help" class="conditional-help" hidden>JPEG unterst&uuml;tzt keine Transparenz. Schwarz wird verwendet.</p>
           </div>
 
-          <div class="field-grid">
-            <label>Ausgabeformat<select name="format" id="format"><option value="jpeg" selected>JPEG</option><option value="webp">WebP</option><option value="png">PNG</option><option value="avif">AVIF</option></select></label>
-            <label id="quality-wrap">Qualit&auml;t <output id="quality-value">85</output><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
-          </div>
-          <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
+          <fieldset class="settings-group output-settings">
+            <legend>Ausgabe</legend>
+            <div class="field-grid">
+              <label>Ausgabeformat<select name="format" id="format"><option value="jpeg" selected>JPEG</option><option value="webp">WebP</option><option value="png">PNG</option><option value="avif">AVIF</option></select></label>
+              <label id="quality-wrap">Qualit&auml;t <output id="quality-value">85</output><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
+            </div>
+            <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
+          </fieldset>
           <p id="form-error" class="notice error" role="alert" hidden></p>
           <div class="form-actions">
             <button class="button primary" type="submit" data-submit disabled>Bild erstellen</button>

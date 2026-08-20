@@ -62,19 +62,21 @@ func TestFitProducesExactDimensionsAndPreservesAspect(t *testing.T) {
 	}
 }
 
-func TestManualCropUsesSelectedArea(t *testing.T) {
+func TestManualCropProducesTargetDimensionsAndUsesSelectedArea(t *testing.T) {
 	result := processFixture(t, 400, 300, Request{
 		Width: 1920, Height: 1080, Mode: ModeCrop, Format: FormatPNG, Quality: 85,
 		CropX: "center", CropY: "center", ManualCrop: true, CropLeft: 0.75, CropTop: 0, CropWidth: 0.25, CropHeight: 1,
 		StripMetadata: true,
 	})
-	if result.Width != 100 || result.Height != 300 {
-		t.Fatalf("manual crop got %dx%d, want native 100x300", result.Width, result.Height)
-	}
+	assertDimensions(t, result.Data, 1920, 1080)
 	img := decodePNG(t, result.Data)
-	red, _, _, _ := img.At(0, 150).RGBA()
+	red, _, _, _ := img.At(0, 540).RGBA()
 	if red < 40<<8 {
 		t.Fatalf("manual crop did not use the selected right-hand image area: red=%d", red>>8)
+	}
+	_, green, _, _ := img.At(960, 10).RGBA()
+	if green < 100<<8 {
+		t.Fatalf("manual crop stretched instead of covering the target ratio: green=%d", green>>8)
 	}
 }
 

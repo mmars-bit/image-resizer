@@ -53,7 +53,7 @@ func (p *Processor) Process(input []byte, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("transform image: %w", err)
 	}
-	if !(req.Mode == ModeCrop && req.ManualCrop) && (img.Width() != req.Width || img.Height() != req.Height) {
+	if img.Width() != req.Width || img.Height() != req.Height {
 		return Result{}, fmt.Errorf("transform image: unexpected output size %dx%d", img.Width(), img.Height())
 	}
 
@@ -117,8 +117,15 @@ func validManualCrop(req Request) bool {
 
 func crop(img *vips.ImageRef, req Request) error {
 	if req.ManualCrop {
-		return manualCrop(img, req)
+		left, top, width, height := manualCropArea(img, req)
+		if err := img.ExtractArea(left, top, width, height); err != nil {
+			return err
+		}
 	}
+	return resizeAndCrop(img, req)
+}
+
+func resizeAndCrop(img *vips.ImageRef, req Request) error {
 	scale := math.Max(float64(req.Width)/float64(img.Width()), float64(req.Height)/float64(img.Height()))
 	if err := img.Resize(scale, vips.KernelLanczos3); err != nil {
 		return err
@@ -126,11 +133,6 @@ func crop(img *vips.ImageRef, req Request) error {
 	left := positionedOffset(img.Width()-req.Width, req.CropX)
 	top := positionedOffset(img.Height()-req.Height, req.CropY)
 	return img.ExtractArea(left, top, req.Width, req.Height)
-}
-
-func manualCrop(img *vips.ImageRef, req Request) error {
-	left, top, width, height := manualCropArea(img, req)
-	return img.ExtractArea(left, top, width, height)
 }
 
 func manualCropAndResize(img *vips.ImageRef, req Request) error {

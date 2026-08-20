@@ -6,9 +6,9 @@ Kleines, eigenstaendiges Web-Tool zum Hochladen, Skalieren, Zuschneiden und Konv
 
 - Drag and Drop, Dateiauswahl und Einfuegen aus der Zwischenablage
 - Frei waehlbare Zielgroessen sowie gaengige Presets
-- Zielseitenverhaeltnisse fuer 16:9, 4:3, 3:2, 1:1 und 9:16
-- Freie Click-and-Drag-Crop-Auswahl in Crop und Stretch
-- Crop exportiert den freien Ausschnitt in seiner nativen Aufloesung; Stretch dehnt den freien Ausschnitt auf die Zielgroesse
+- Seitenverhaeltnis-Sperre und Presets fuer gaengige Zielgroessen
+- Seitenverhaeltnisgebundene Crop-Auswahl fuer Crop / Cover sowie freie Ausschnittauswahl fuer Stretch
+- Crop skaliert den ausgewaehlten Ausschnitt ohne Verzerrung auf die Zielgroesse
 - Resize-Modi: Stretch, Crop / Cover und Fit / Contain mit Hintergrundfarbe
 - Ausgabe als JPEG, PNG, WebP und AVIF (wenn der Container-Codec AVIF unterstuetzt)
 - Lokale Originalvorschau sowie serverseitige Ergebnisvorschau und Download
@@ -72,7 +72,7 @@ Als Ausgabe werden JPEG, PNG, WebP und AVIF angeboten. Die AVIF-Verfuegbarkeit s
 
 ## API
 
-`POST /api/resize` akzeptiert `multipart/form-data` mit den Feldern `file`, `width`, `height`, `mode`, `format`, `quality`, `cropX`, `cropY`, `background` und `stripMetadata`. Die Weboberflaeche sendet bei freiem Crop zusaetzlich `cropLeft`, `cropTop`, `cropWidth` und `cropHeight` als normalisierte Werte zwischen `0` und `1`. Mit `mode=crop` bleibt der Ausschnitt in nativer Aufloesung; mit `mode=stretch` wird er auf `width` x `height` gedehnt.
+`POST /api/resize` akzeptiert `multipart/form-data` mit den Feldern `file`, `width`, `height`, `mode`, `format`, `quality`, `cropX`, `cropY`, `background` und `stripMetadata`. Die Weboberflaeche sendet bei Crop zusaetzlich `cropLeft`, `cropTop`, `cropWidth` und `cropHeight` als normalisierte Werte zwischen `0` und `1`. Mit `mode=crop` wird der Ausschnitt ohne Verzerrung auf `width` x `height` skaliert; mit `mode=stretch` wird das Bild, oder ein optionaler manueller Ausschnitt, auf diese Groesse gedehnt.
 
 ```bash
 curl \

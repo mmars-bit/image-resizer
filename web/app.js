@@ -25,14 +25,13 @@ let cropState;
 let cropDrag;
 let cropHoverPoint;
 let pageDragDepth = 0;
-const settingsStorageKey = 'image-resizer.settings';
+const settingsStorageKey = 'image-resizer.settings.v2';
 
 function saveSettings() {
   try {
     localStorage.setItem(settingsStorageKey, JSON.stringify({
       width: widthInput.value,
       height: heightInput.value,
-      aspectRatio: aspectRatio.value,
       aspectRatioLocked: aspectRatioLock.getAttribute('aria-pressed') === 'true',
       preset: document.querySelector('#preset').value,
       mode: form.elements.mode.value,
@@ -57,7 +56,6 @@ function restoreSettings() {
 
     if (validDimension(settings.width, widthInput)) widthInput.value = settings.width;
     if (validDimension(settings.height, heightInput)) heightInput.value = settings.height;
-    if (validOption('#aspect-ratio', settings.aspectRatio)) aspectRatio.value = settings.aspectRatio;
     if (typeof settings.aspectRatioLocked === 'boolean') setAspectRatioLock(settings.aspectRatioLocked);
     if (validOption('#preset', settings.preset)) document.querySelector('#preset').value = settings.preset;
     if (['crop', 'stretch', 'fit'].includes(settings.mode)) form.elements.mode.value = settings.mode;
@@ -215,7 +213,6 @@ function hasFiles(event) {
 
 const widthInput = document.querySelector('#width');
 const heightInput = document.querySelector('#height');
-const aspectRatio = document.querySelector('#aspect-ratio');
 const aspectRatioLock = document.querySelector('#aspect-ratio-lock');
 let lockedAspectRatio;
 
@@ -224,7 +221,6 @@ document.querySelector('#preset').addEventListener('change', (event) => {
     const [width, height] = event.target.value.split('x');
     widthInput.value = width;
     heightInput.value = height;
-    syncAspectRatioFromDimensions();
     if (lockedAspectRatio) lockedAspectRatio = Number(width) / Number(height);
     resetCropSelection();
     syncCropEditor();
@@ -234,7 +230,6 @@ document.querySelector('#preset').addEventListener('change', (event) => {
 widthInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   if (lockedAspectRatio) syncLockedDimension(widthInput);
-  else applyAspectRatio();
   resetCropSelection();
   syncCropEditor();
   saveSettings();
@@ -242,15 +237,6 @@ widthInput.addEventListener('input', () => {
 heightInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   if (lockedAspectRatio) syncLockedDimension(heightInput);
-  else syncAspectRatioFromDimensions();
-  resetCropSelection();
-  syncCropEditor();
-  saveSettings();
-});
-aspectRatio.addEventListener('change', () => {
-  applyAspectRatio();
-  if (lockedAspectRatio) lockedAspectRatio = Number(widthInput.value) / Number(heightInput.value);
-  document.querySelector('#preset').value = 'custom';
   resetCropSelection();
   syncCropEditor();
   saveSettings();
@@ -284,34 +270,29 @@ function syncConditionalOptions() {
   const cropEnabled = mode === 'crop' || mode === 'stretch';
   document.querySelector('#crop-options').hidden = !cropEnabled;
   document.querySelector('#crop-help').textContent = mode === 'crop'
-    ? 'Ziehen Sie einen freien Rahmen oder an den Ecken zum Skalieren. Halten Sie Umschalt gedrueckt und ziehen Sie innerhalb der Auswahl zum Verschieben. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird in seiner nativen Aufloesung exportiert.'
-    : 'Ziehen Sie einen freien Rahmen oder an den Ecken zum Skalieren. Halten Sie Umschalt gedrueckt und ziehen Sie innerhalb der Auswahl zum Verschieben. Auswahl zuruecksetzen stellt das ganze Bild wieder her. Der Ausschnitt wird auf die eingestellte Zielaufloesung gedehnt.';
-  setTargetSizeEnabled(mode !== 'crop');
+    ? 'Der Rahmen folgt dem Zielseitenverhaeltnis. Ziehen Sie ihn zum Verschieben oder die Ecken zum Anpassen.'
+    : 'Ziehen Sie einen freien Rahmen auf oder passen Sie ihn an den Ecken an. Halten Sie Umschalt gedrueckt und ziehen Sie innerhalb des Rahmens zum Verschieben.';
   document.querySelector('#fit-options').hidden = mode !== 'fit';
   const isCustom = document.querySelector('#background').value === 'custom';
   document.querySelector('#custom-color-wrap').hidden = mode !== 'fit' || !isCustom;
-  const lossy = ['jpeg', 'webp', 'avif'].includes(document.querySelector('#format').value);
-  document.querySelector('#quality-wrap').hidden = !lossy;
-  if (mode === 'fit' && document.querySelector('#format').value === 'jpeg' && document.querySelector('#background').value === 'transparent') {
+  const format = document.querySelector('#format').value;
+  const transparentOption = document.querySelector('#background option[value="transparent"]');
+  const jpeg = format === 'jpeg';
+  transparentOption.disabled = jpeg;
+  const backgroundHelp = document.querySelector('#background-help');
+  if (jpeg && document.querySelector('#background').value === 'transparent') {
     document.querySelector('#background').value = 'black';
+    backgroundHelp.hidden = false;
+  } else {
+    backgroundHelp.hidden = true;
   }
+  const lossy = ['jpeg', 'webp', 'avif'].includes(format);
+  document.querySelector('#quality-wrap').hidden = !lossy;
   syncCropEditor();
 }
 restoreSettings();
 syncConditionalOptions();
 document.querySelector('#quality-value').textContent = document.querySelector('#quality').value;
-
-function applyAspectRatio() {
-  if (aspectRatio.value === 'free' || !widthInput.value) return;
-  const [widthPart, heightPart] = aspectRatio.value.split(':').map(Number);
-  const requestedWidth = Number(widthInput.value);
-  const maximumHeight = Number(heightInput.max);
-  const outputHeight = Math.round(requestedWidth * heightPart / widthPart);
-  if (outputHeight > maximumHeight) {
-    widthInput.value = Math.max(1, Math.floor(maximumHeight * widthPart / heightPart));
-  }
-  heightInput.value = Math.max(1, Math.round(Number(widthInput.value) * heightPart / widthPart));
-}
 
 function setAspectRatioLock(locked) {
   if (locked) {
@@ -323,6 +304,7 @@ function setAspectRatioLock(locked) {
     lockedAspectRatio = undefined;
   }
   aspectRatioLock.setAttribute('aria-pressed', String(locked));
+  aspectRatioLock.textContent = locked ? 'Seitenverhaeltnis entsperren' : 'Seitenverhaeltnis sperren';
 }
 
 function syncLockedDimension(changedInput) {
@@ -334,24 +316,21 @@ function syncLockedDimension(changedInput) {
   otherInput.value = clamp(requestedValue, Number(otherInput.min), Number(otherInput.max));
 }
 
-function syncAspectRatioFromDimensions() {
-  const width = Number(widthInput.value);
-  const height = Number(heightInput.value);
-  if (!width || !height) {
-    aspectRatio.value = 'free';
+function resetCropSelection() {
+  if (form.elements.mode.value === 'stretch') {
+    cropState = { x: 0, y: 0, width: 1, height: 1 };
     return;
   }
-  const matchingRatio = [...aspectRatio.options].find((option) => {
-    if (option.value === 'free') return false;
-    const [widthPart, heightPart] = option.value.split(':').map(Number);
-    return width * heightPart === height * widthPart;
-  });
-  aspectRatio.value = matchingRatio ? matchingRatio.value : 'free';
-}
-
-function resetCropSelection() {
-  if (!sourcePreview.naturalWidth || !sourcePreview.naturalHeight) return;
-  cropState = { x: 0, y: 0, width: 1, height: 1 };
+  const sourceRatio = sourcePreview.naturalWidth / sourcePreview.naturalHeight;
+  const targetRatio = Number(widthInput.value) / Number(heightInput.value);
+  if (!Number.isFinite(sourceRatio) || !Number.isFinite(targetRatio) || targetRatio <= 0) return;
+  if (sourceRatio > targetRatio) {
+    const width = targetRatio / sourceRatio;
+    cropState = { x: (1 - width) / 2, y: 0, width, height: 1 };
+  } else {
+    const height = sourceRatio / targetRatio;
+    cropState = { x: 0, y: (1 - height) / 2, width: 1, height };
+  }
 }
 
 function syncCropEditor() {
@@ -385,11 +364,14 @@ cropEditor.addEventListener('pointerdown', (event) => {
   const startState = { ...cropState };
   const insideSelection = point.x >= cropState.x && point.x <= cropState.x + cropState.width
     && point.y >= cropState.y && point.y <= cropState.y + cropState.height;
-  const moveSelection = event.shiftKey && insideSelection;
-  if (!handle && !moveSelection) cropState = { x: point.x, y: point.y, width: 0, height: 0 };
+  const stretchMode = form.elements.mode.value === 'stretch';
+  const moveSelection = stretchMode && event.shiftKey && insideSelection;
+  const drawSelection = stretchMode && !handle && !moveSelection;
+  if (!handle && !insideSelection && !drawSelection) return;
+  if (drawSelection) cropState = { x: point.x, y: point.y, width: 0, height: 0 };
   cropDrag = {
     pointerId: event.pointerId,
-    action: handle ? handle.dataset.cropHandle : moveSelection ? 'move' : 'draw',
+    action: handle ? handle.dataset.cropHandle : drawSelection ? 'draw' : 'move',
     startX: point.x,
     startY: point.y,
     startState,
@@ -444,34 +426,56 @@ function resizeCropSelection(point) {
   const { action, startState } = cropDrag;
   const right = startState.x + startState.width;
   const bottom = startState.y + startState.height;
-  if (action === 'top-left') {
-    cropState.x = clamp(point.x, 0, right);
-    cropState.y = clamp(point.y, 0, bottom);
-    cropState.width = right - cropState.x;
-    cropState.height = bottom - cropState.y;
-  } else if (action === 'top-right') {
-    cropState.x = startState.x;
-    cropState.y = clamp(point.y, 0, bottom);
-    cropState.width = clamp(point.x, startState.x, 1) - startState.x;
-    cropState.height = bottom - cropState.y;
-  } else if (action === 'bottom-left') {
-    cropState.x = clamp(point.x, 0, right);
-    cropState.y = startState.y;
-    cropState.width = right - cropState.x;
-    cropState.height = clamp(point.y, startState.y, 1) - startState.y;
-  } else if (action === 'bottom-right') {
-    cropState.x = startState.x;
-    cropState.y = startState.y;
-    cropState.width = clamp(point.x, startState.x, 1) - startState.x;
-    cropState.height = clamp(point.y, startState.y, 1) - startState.y;
+  if (form.elements.mode.value === 'stretch') {
+    if (action === 'top-left') {
+      cropState.x = clamp(point.x, 0, right);
+      cropState.y = clamp(point.y, 0, bottom);
+      cropState.width = right - cropState.x;
+      cropState.height = bottom - cropState.y;
+    } else if (action === 'top-right') {
+      cropState.x = startState.x;
+      cropState.y = clamp(point.y, 0, bottom);
+      cropState.width = clamp(point.x, startState.x, 1) - startState.x;
+      cropState.height = bottom - cropState.y;
+    } else if (action === 'bottom-left') {
+      cropState.x = clamp(point.x, 0, right);
+      cropState.y = startState.y;
+      cropState.width = right - cropState.x;
+      cropState.height = clamp(point.y, startState.y, 1) - startState.y;
+    } else if (action === 'bottom-right') {
+      cropState.x = startState.x;
+      cropState.y = startState.y;
+      cropState.width = clamp(point.x, startState.x, 1) - startState.x;
+      cropState.height = clamp(point.y, startState.y, 1) - startState.y;
+    }
+    return;
   }
+  const fromLeft = action === 'top-left' || action === 'bottom-left';
+  const fromTop = action === 'top-left' || action === 'top-right';
+  const anchorX = fromLeft ? right : startState.x;
+  const anchorY = fromTop ? bottom : startState.y;
+  const sourceRatio = sourcePreview.naturalWidth / sourcePreview.naturalHeight;
+  const targetRatio = Number(widthInput.value) / Number(heightInput.value);
+  const widthPerHeight = targetRatio / sourceRatio;
+  if (!Number.isFinite(widthPerHeight) || widthPerHeight <= 0) return;
+
+  const requestedHeight = Math.max(Math.abs(point.x - anchorX) / widthPerHeight, Math.abs(point.y - anchorY));
+  const maximumHeight = Math.min(fromLeft ? anchorX / widthPerHeight : (1 - anchorX) / widthPerHeight, fromTop ? anchorY : 1 - anchorY);
+  const height = clamp(requestedHeight, 0, maximumHeight);
+  const width = height * widthPerHeight;
+  cropState = {
+    x: fromLeft ? anchorX - width : anchorX,
+    y: fromTop ? anchorY - height : anchorY,
+    width,
+    height,
+  };
 }
 
 function syncCropCursor(shiftKey) {
   const insideSelection = cropHoverPoint && cropState
     && cropHoverPoint.x >= cropState.x && cropHoverPoint.x <= cropState.x + cropState.width
     && cropHoverPoint.y >= cropState.y && cropHoverPoint.y <= cropState.y + cropState.height;
-  cropEditor.classList.toggle('move-ready', Boolean(shiftKey && insideSelection));
+  cropEditor.classList.toggle('move-ready', form.elements.mode.value === 'stretch' && Boolean(shiftKey && insideSelection));
 }
 
 function cropPoint(event) {
@@ -493,15 +497,14 @@ form.addEventListener('submit', async (event) => {
   }
   const width = Number(form.elements.width.value);
   const height = Number(form.elements.height.value);
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
-    showMessage(formError, 'Breite und Hoehe muessen positive ganze Zahlen sein.');
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < Number(widthInput.min) || height < Number(heightInput.min) || width > Number(widthInput.max) || height > Number(heightInput.max)) {
+    showMessage(formError, `Breite und Hoehe muessen ganze Zahlen zwischen ${widthInput.min} und ${widthInput.max} sein.`);
     return;
   }
   setBusy(true);
   try {
     const data = new FormData(form);
     data.set('file', selectedFile, selectedFile.name);
-    // Disabled target-size controls in native Crop mode are still required by the API.
     data.set('width', widthInput.value);
     data.set('height', heightInput.value);
     if ((form.elements.mode.value === 'crop' || form.elements.mode.value === 'stretch') && cropState) {
@@ -546,11 +549,6 @@ function setBusy(busy) {
 }
 function setSubmitDisabled(disabled) {
   submitButtons.forEach((button) => { button.disabled = disabled; });
-}
-function setTargetSizeEnabled(enabled) {
-  const targetSettings = document.querySelector('#target-size-settings');
-  targetSettings.classList.toggle('is-disabled', !enabled);
-  targetSettings.querySelectorAll('input, select, button').forEach((control) => { control.disabled = !enabled; });
 }
 function showMessage(element, message) { element.textContent = message; element.hidden = false; }
 function clearMessage(element) { element.hidden = true; element.textContent = ''; }
