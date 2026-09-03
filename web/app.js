@@ -15,6 +15,8 @@ const resultPanel = document.querySelector('#result-panel');
 const resultPreview = document.querySelector('#result-preview');
 const download = document.querySelector('#download');
 const resultStatus = document.querySelector('#result-status');
+const resultState = document.querySelector('#result-state');
+const livePreview = document.querySelector('#live-preview');
 const cropEditor = document.querySelector('#crop-editor');
 const cropSelection = document.querySelector('#crop-selection');
 const resetCrop = document.querySelector('#reset-crop');
@@ -25,7 +27,14 @@ let cropState;
 let cropDrag;
 let cropHoverPoint;
 let pageDragDepth = 0;
+let busy = false;
+let previewTimer;
+let previewPending = false;
+let previewController;
+let renderedKey;
 const settingsStorageKey = 'image-resizer.settings.v2';
+// The pause that marks an edit as finished, so dragging never triggers a render.
+const previewDelay = 450;
 
 function saveSettings() {
   try {
@@ -40,6 +49,7 @@ function saveSettings() {
       format: document.querySelector('#format').value,
       quality: document.querySelector('#quality').value,
       stripMetadata: form.elements.stripMetadata.checked,
+      livePreview: livePreview.checked,
     }));
   } catch (_) { /* Storage is optional. */ }
 }
@@ -68,7 +78,14 @@ function restoreSettings() {
       quality.value = settings.quality;
     }
     if (typeof settings.stripMetadata === 'boolean') form.elements.stripMetadata.checked = settings.stripMetadata;
+    if (typeof settings.livePreview === 'boolean') livePreview.checked = settings.livePreview;
   } catch (_) { /* Invalid or unavailable storage keeps the defaults. */ }
+}
+
+// Persists the settings and queues the live preview for the same change.
+function settingsChanged() {
+  saveSettings();
+  schedulePreview();
 }
 
 chooseFile.addEventListener('click', () => fileInput.click());
@@ -86,6 +103,12 @@ newImage.addEventListener('click', resetImage);
 resetCrop.addEventListener('click', () => {
   resetCropSelection();
   syncCropEditor();
+  schedulePreview();
+});
+livePreview.addEventListener('change', () => {
+  saveSettings();
+  if (livePreview.checked) schedulePreview();
+  else cancelPreview();
 });
 
 ['dragenter', 'dragover'].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
@@ -139,6 +162,8 @@ function selectFile(file) {
     showMessage(uploadError, 'Die Datei ist groesser als das Standardlimit von 50 MB.');
     return;
   }
+  cancelPreview();
+  renderedKey = undefined;
   resultPanel.hidden = true;
   if (resultURL) URL.revokeObjectURL(resultURL);
   resultURL = undefined;
@@ -164,6 +189,7 @@ function selectFile(file) {
     sourceWrap.classList.remove('empty');
     resetCropSelection();
     syncCropEditor();
+    schedulePreview();
   };
   sourcePreview.onerror = () => {
     document.querySelector('#source-resolution').textContent = 'Browser-Vorschau nicht verfuegbar';
@@ -171,11 +197,16 @@ function selectFile(file) {
     sourcePlaceholder.textContent = 'Vorschau fuer dieses Format nicht verfuegbar';
     sourcePlaceholder.hidden = false;
     cropEditor.hidden = true;
+    // Without browser decoding there is no crop to place, but the server can still render.
+    cropState = undefined;
+    schedulePreview();
   };
   sourcePreview.src = sourceURL;
 }
 
 function resetImage() {
+  cancelPreview();
+  renderedKey = undefined;
   if (sourceURL) URL.revokeObjectURL(sourceURL);
   if (resultURL) URL.revokeObjectURL(resultURL);
   selectedFile = undefined;
@@ -225,45 +256,45 @@ document.querySelector('#preset').addEventListener('change', (event) => {
     resetCropSelection();
     syncCropEditor();
   }
-  saveSettings();
+  settingsChanged();
 });
 widthInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   if (lockedAspectRatio) syncLockedDimension(widthInput);
   resetCropSelection();
   syncCropEditor();
-  saveSettings();
+  settingsChanged();
 });
 heightInput.addEventListener('input', () => {
   document.querySelector('#preset').value = 'custom';
   if (lockedAspectRatio) syncLockedDimension(heightInput);
   resetCropSelection();
   syncCropEditor();
-  saveSettings();
+  settingsChanged();
 });
 aspectRatioLock.addEventListener('click', () => {
   setAspectRatioLock(!lockedAspectRatio);
-  saveSettings();
+  settingsChanged();
 });
 document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', () => {
   resetCropSelection();
   syncConditionalOptions();
-  saveSettings();
+  settingsChanged();
 }));
 document.querySelector('#background').addEventListener('change', () => {
   syncConditionalOptions();
-  saveSettings();
+  settingsChanged();
 });
-document.querySelector('#custom-color').addEventListener('input', saveSettings);
+document.querySelector('#custom-color').addEventListener('input', settingsChanged);
 document.querySelector('#format').addEventListener('change', () => {
   syncConditionalOptions();
-  saveSettings();
+  settingsChanged();
 });
 document.querySelector('#quality').addEventListener('input', (event) => {
   document.querySelector('#quality-value').textContent = event.target.value;
-  saveSettings();
+  settingsChanged();
 });
-form.elements.stripMetadata.addEventListener('change', saveSettings);
+form.elements.stripMetadata.addEventListener('change', settingsChanged);
 
 function syncConditionalOptions() {
   const mode = form.elements.mode.value;
@@ -399,6 +430,8 @@ cropEditor.addEventListener('pointermove', (event) => {
   }
   syncCropEditor();
   syncCropCursor(event.shiftKey);
+  // Keeps pushing the preview out while the pointer keeps changing the crop.
+  schedulePreview();
 });
 cropEditor.addEventListener('pointerup', endCropDrag);
 cropEditor.addEventListener('pointercancel', endCropDrag);
@@ -420,6 +453,7 @@ function endCropDrag(event) {
   cropEditor.releasePointerCapture(event.pointerId);
   if (cropState.width < 0.002 || cropState.height < 0.002) resetCropSelection();
   syncCropEditor();
+  schedulePreview();
 }
 
 function resizeCropSelection(point) {
@@ -487,65 +521,178 @@ function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-form.addEventListener('submit', async (event) => {
+form.addEventListener('submit', (event) => {
   event.preventDefault();
-  clearMessage(formError);
-  resultStatus.textContent = '';
+  generate(false);
+});
+
+// Restarts the idle timer; the render only runs once editing has actually stopped.
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  if (!livePreview.checked || !selectedFile) {
+    previewPending = false;
+    syncResultState();
+    return;
+  }
+  previewPending = true;
+  previewTimer = setTimeout(runPreview, previewDelay);
+  syncResultState();
+}
+
+function cancelPreview() {
+  clearTimeout(previewTimer);
+  previewPending = false;
+  if (previewController) {
+    const controller = previewController;
+    previewController = undefined;
+    controller.abort();
+  }
+  syncResultState();
+}
+
+function runPreview() {
+  previewPending = false;
+  // A held pointer means the crop is still being edited, so wait for the drag to end.
+  if (cropDrag) {
+    schedulePreview();
+    return;
+  }
+  generate(true);
+}
+
+async function generate(preview) {
+  if (!preview) {
+    clearMessage(formError);
+    resultStatus.textContent = '';
+  }
   if (!selectedFile) {
-    showMessage(formError, 'Bitte waehlen Sie zuerst ein Bild aus.');
+    if (!preview) showMessage(formError, 'Bitte waehlen Sie zuerst ein Bild aus.');
     return;
   }
-  const width = Number(form.elements.width.value);
-  const height = Number(form.elements.height.value);
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width < Number(widthInput.min) || height < Number(heightInput.min) || width > Number(widthInput.max) || height > Number(heightInput.max)) {
-    showMessage(formError, `Breite und Hoehe muessen ganze Zahlen zwischen ${widthInput.min} und ${widthInput.max} sein.`);
+  const width = Number(widthInput.value);
+  const height = Number(heightInput.value);
+  if (!validDimension(width, widthInput) || !validDimension(height, heightInput)) {
+    if (!preview) showMessage(formError, `Breite und Hoehe muessen ganze Zahlen zwischen ${widthInput.min} und ${widthInput.max} sein.`);
     return;
   }
-  setBusy(true);
+  // A live preview is the real output, so an unchanged request needs no round trip.
+  const key = renderKey();
+  if (key === renderedKey && resultURL) {
+    if (!preview) revealResult();
+    syncResultState();
+    return;
+  }
+  if (preview && busy) {
+    schedulePreview();
+    return;
+  }
+  cancelPreview();
+  const controller = new AbortController();
+  if (preview) previewController = controller;
+  else setBusy(true);
+  syncResultState();
   try {
-    const data = new FormData(form);
-    data.set('file', selectedFile, selectedFile.name);
-    data.set('width', widthInput.value);
-    data.set('height', heightInput.value);
-    if ((form.elements.mode.value === 'crop' || form.elements.mode.value === 'stretch') && cropState) {
-      data.set('cropLeft', cropState.x.toFixed(6));
-      data.set('cropTop', cropState.y.toFixed(6));
-      data.set('cropWidth', cropState.width.toFixed(6));
-      data.set('cropHeight', cropState.height.toFixed(6));
-    }
-    if (data.get('background') === 'custom') data.set('background', document.querySelector('#custom-color').value);
-    data.set('stripMetadata', String(form.elements.stripMetadata.checked));
-    const response = await fetch('/api/resize', { method: 'POST', body: data });
+    const response = await fetch('/api/resize', { method: 'POST', body: buildRequest(), signal: controller.signal });
     if (!response.ok) {
       let message = 'Das Bild konnte nicht verarbeitet werden.';
       try { message = (await response.json()).error || message; } catch (_) { /* controlled fallback */ }
       throw new Error(message);
     }
     const blob = await response.blob();
-    if (resultURL) URL.revokeObjectURL(resultURL);
-    resultURL = URL.createObjectURL(blob);
-    resultPreview.src = resultURL;
-    const name = filenameFromResponse(response.headers.get('content-disposition')) || outputName(selectedFile.name, width, height, form.elements.format.value);
-    download.href = resultURL;
-    download.download = name;
-    const outputWidth = Number(response.headers.get('x-image-width')) || width;
-    const outputHeight = Number(response.headers.get('x-image-height')) || height;
-    document.querySelector('#result-details').textContent = `${name} / ${outputWidth} x ${outputHeight} px / ${form.elements.format.value.toUpperCase()} / ${formatBytes(blob.size)}`;
-    resultPanel.hidden = false;
-    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    document.querySelector('#result-heading').focus({ preventScroll: true });
-    resultStatus.textContent = `Bild erfolgreich erstellt: ${outputWidth} x ${outputHeight} Pixel, ${form.elements.format.value.toUpperCase()}, ${name}.`;
+    if (preview && previewController !== controller) return;
+    const result = applyResult(blob, response, width, height);
+    renderedKey = key;
+    clearMessage(formError);
+    if (!preview) {
+      revealResult();
+      resultStatus.textContent = `Bild erfolgreich erstellt: ${result.width} x ${result.height} Pixel, ${form.elements.format.value.toUpperCase()}, ${result.name}.`;
+    }
   } catch (error) {
+    if (error.name === 'AbortError') return;
     showMessage(formError, error.message);
+    if (preview) resultState.textContent = 'Vorschau fehlgeschlagen';
+    return;
   } finally {
-    setBusy(false);
+    if (previewController === controller) previewController = undefined;
+    if (!preview) setBusy(false);
   }
-});
+  syncResultState();
+}
 
-function setBusy(busy) {
-  setSubmitDisabled(busy || !selectedFile);
-  newImage.disabled = busy;
-  loading.hidden = !busy;
+function buildRequest() {
+  const data = new FormData(form);
+  data.set('file', selectedFile, selectedFile.name);
+  data.set('width', widthInput.value);
+  data.set('height', heightInput.value);
+  if (manualCropActive()) {
+    data.set('cropLeft', cropState.x.toFixed(6));
+    data.set('cropTop', cropState.y.toFixed(6));
+    data.set('cropWidth', cropState.width.toFixed(6));
+    data.set('cropHeight', cropState.height.toFixed(6));
+  }
+  if (data.get('background') === 'custom') data.set('background', document.querySelector('#custom-color').value);
+  data.set('stripMetadata', String(form.elements.stripMetadata.checked));
+  return data;
+}
+
+function applyResult(blob, response, width, height) {
+  if (resultURL) URL.revokeObjectURL(resultURL);
+  resultURL = URL.createObjectURL(blob);
+  resultPreview.src = resultURL;
+  const name = filenameFromResponse(response.headers.get('content-disposition')) || outputName(selectedFile.name, width, height, form.elements.format.value);
+  download.href = resultURL;
+  download.download = name;
+  const outputWidth = Number(response.headers.get('x-image-width')) || width;
+  const outputHeight = Number(response.headers.get('x-image-height')) || height;
+  document.querySelector('#result-details').textContent = `${name} / ${outputWidth} x ${outputHeight} px / ${form.elements.format.value.toUpperCase()} / ${formatBytes(blob.size)}`;
+  resultPanel.hidden = false;
+  return { name, width: outputWidth, height: outputHeight };
+}
+
+function revealResult() {
+  resultPanel.hidden = false;
+  resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.querySelector('#result-heading').focus({ preventScroll: true });
+}
+
+function manualCropActive() {
+  return Boolean(cropState) && (form.elements.mode.value === 'crop' || form.elements.mode.value === 'stretch');
+}
+
+// Identifies the output a request would produce, so identical work is never repeated.
+function renderKey() {
+  if (!selectedFile) return '';
+  const parts = [
+    selectedFile.name, selectedFile.size, selectedFile.lastModified,
+    widthInput.value, heightInput.value, form.elements.mode.value,
+    form.elements.format.value, document.querySelector('#quality').value,
+    document.querySelector('#background').value, document.querySelector('#custom-color').value,
+    String(form.elements.stripMetadata.checked),
+  ];
+  if (manualCropActive()) {
+    parts.push(cropState.x.toFixed(6), cropState.y.toFixed(6), cropState.width.toFixed(6), cropState.height.toFixed(6));
+  }
+  return parts.join('|');
+}
+
+function syncResultState() {
+  const updating = previewPending || Boolean(previewController);
+  const stale = Boolean(resultURL) && renderKey() !== renderedKey;
+  resultPanel.classList.toggle('stale', updating || stale);
+  resultState.classList.toggle('success', !updating && !stale);
+  resultState.classList.toggle('pending', updating || stale);
+  resultState.textContent = updating ? 'Vorschau wird aktualisiert' : stale ? 'Nicht aktuell' : 'Bereit';
+}
+
+function validDimension(value, input) {
+  return Number.isInteger(value) && value >= Number(input.min) && value <= Number(input.max);
+}
+
+function setBusy(value) {
+  busy = value;
+  setSubmitDisabled(value || !selectedFile);
+  newImage.disabled = value;
+  loading.hidden = !value;
 }
 function setSubmitDisabled(disabled) {
   submitButtons.forEach((button) => { button.disabled = disabled; });
