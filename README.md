@@ -12,6 +12,7 @@ Kleines, eigenstaendiges Web-Tool zum Hochladen, Skalieren, Zuschneiden und Konv
 - Resize-Modi: Stretch, Crop / Cover und Fit / Contain mit Hintergrundfarbe
 - Ausgabe als JPEG, PNG, WebP und AVIF (wenn der Container-Codec AVIF unterstuetzt)
 - Lokale Originalvorschau sowie serverseitige Ergebnisvorschau und Download
+- Live-Vorschau: das Ergebnis wird nach einer kurzen Pause automatisch neu erzeugt, sobald Crop oder Einstellungen fertig geaendert sind (abschaltbar)
 - Einstellbare Qualitaet fuer JPEG, WebP und AVIF
 - Metadatenentfernung inklusive EXIF/GPS ist standardmaessig aktiv
 - Validierung, Upload- und Pixelgrenzen sowie saubere Fehlermeldungen

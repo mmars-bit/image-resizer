@@ -97,6 +97,7 @@
             </div>
             <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
           </fieldset>
+          <label class="check live-preview-toggle"><input id="live-preview" type="checkbox" checked> Live-Vorschau <small>(erstellt das Ergebnis automatisch, sobald eine &Auml;nderung abgeschlossen ist)</small></label>
           <p id="form-error" class="notice error" role="alert" hidden></p>
           <div class="form-actions">
             <button class="button primary" type="submit" data-submit disabled>Bild erstellen</button>
@@ -108,7 +109,7 @@
     </form>
 
     <section id="result-panel" class="panel result-panel" aria-labelledby="result-heading" hidden>
-      <div class="section-title"><h2 id="result-heading" tabindex="-1">Ergebnis</h2><span class="status success">Bereit</span></div>
+      <div class="section-title"><h2 id="result-heading" tabindex="-1">Ergebnis</h2><span id="result-state" class="status success">Bereit</span></div>
       <div class="result-layout">
         <div class="preview"><img id="result-preview" alt="Vorschau des bearbeiteten Bilds"></div>
         <div class="result-actions">
