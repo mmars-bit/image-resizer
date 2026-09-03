@@ -3,7 +3,8 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "package-name": "image-resizer"
+      "package-name": "image-resizer",
+      "version-file": "internal/appversion/version.txt"
     }
   }
 }

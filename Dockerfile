@@ -20,10 +20,9 @@ COPY web ./web
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go test ./...
-ARG VERSION=dev
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=1 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/image-resizer ./cmd/server
+    CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/image-resizer ./cmd/server
 
 FROM debian:trixie-slim
 

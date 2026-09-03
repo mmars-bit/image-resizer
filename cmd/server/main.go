@@ -12,15 +12,14 @@ import (
 
 	"github.com/davidbyttow/govips/v2/vips"
 
+	"image-resizer/internal/appversion"
 	"image-resizer/internal/httpserver"
 	"image-resizer/internal/image"
 )
 
-// version is replaced at build time for release images.
-var version = "dev"
-
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	version := appversion.Current()
 	if err := vips.Startup(nil); err != nil {
 		logger.Error("could not start libvips", "error", err)
 		os.Exit(1)
