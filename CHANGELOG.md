@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/mmars-bit/image-resizer/compare/v0.4.0...v0.4.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* add browser tab icon ([2509ab9](https://github.com/mmars-bit/image-resizer/commit/2509ab9642777a749a80578740aac06f62159c03))
+
 ## [0.4.0](https://github.com/mmars-bit/image-resizer/compare/image-resizer-v0.3.0...image-resizer-v0.4.0) (2026-09-03)
 
 
