@@ -16,6 +16,9 @@ import (
 	"image-resizer/internal/image"
 )
 
+// version is replaced at build time for release images.
+var version = "dev"
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	if err := vips.Startup(nil); err != nil {
@@ -32,7 +35,7 @@ func main() {
 		logger.Error("environment limits must be positive")
 		os.Exit(1)
 	}
-	app, err := httpserver.New(image.NewProcessor(limits), httpserver.Config{MaxUploadBytes: int64(maxUploadMB) << 20}, logger)
+	app, err := httpserver.New(image.NewProcessor(limits), httpserver.Config{MaxUploadBytes: int64(maxUploadMB) << 20, Version: version}, logger)
 	if err != nil {
 		logger.Error("could not initialize server", "error", err)
 		os.Exit(1)
@@ -43,7 +46,7 @@ func main() {
 	}
 	server := app.HTTPServer(":" + port)
 	go func() {
-		logger.Info("server listening", "port", port, "max_upload_mb", maxUploadMB, "max_megapixels", limits.MaxMegapixels)
+		logger.Info("server listening", "version", version, "port", port, "max_upload_mb", maxUploadMB, "max_megapixels", limits.MaxMegapixels)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server stopped unexpectedly", "error", err)
 			os.Exit(1)
