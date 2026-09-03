@@ -388,6 +388,8 @@ function syncCropEditor() {
 
 cropEditor.addEventListener('pointerdown', (event) => {
   if (!sourcePreview.naturalWidth || event.button !== 0) return;
+  // Keeps the browser from starting a text selection or a native image drag on top of the overlay.
+  event.preventDefault();
   const point = cropPoint(event);
   cropHoverPoint = point;
   syncCropCursor(event.shiftKey);
@@ -433,6 +435,7 @@ cropEditor.addEventListener('pointermove', (event) => {
   // Keeps pushing the preview out while the pointer keeps changing the crop.
   schedulePreview();
 });
+cropEditor.addEventListener('dragstart', (event) => event.preventDefault());
 cropEditor.addEventListener('pointerup', endCropDrag);
 cropEditor.addEventListener('pointercancel', endCropDrag);
 cropEditor.addEventListener('pointerleave', () => {
