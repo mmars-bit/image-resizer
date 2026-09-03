@@ -116,4 +116,4 @@ Pushes auf `main` aktualisieren automatisch einen Release-PR anhand von Conventi
 
 Das Repository benoetigt die Actions-Variable `DOCKERHUB_USERNAME` und das Actions-Secret `DOCKERHUB_TOKEN`. Der Token sollte ein Docker-Hub-Zugriffstoken mit Schreibzugriff auf das Repository `image-resizer` sein.
 
-Die aktuelle Anwendungs-Version steht in `internal/appversion/version.txt`, wird direkt in das Go-Binary eingebettet und in der Weboberflaeche angezeigt. Release Please aktualisiert diese Datei im Release-PR; Docker-Buildnummern oder lokale Build-Argumente veraendern die angezeigte Version nicht.
+Die aktuelle Anwendungs-Version steht in `internal/appversion/version.txt`, wird direkt in das Go-Binary eingebettet und in der Weboberflaeche angezeigt. Release Please aktualisiert diese Datei im Release-PR; Docker-Buildnummern oder lokale Build-Argumente veraendern die angezeigte Version nicht. Release-Images werden fuer `linux/amd64` und `linux/arm64` veroeffentlicht.
