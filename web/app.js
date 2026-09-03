@@ -448,7 +448,14 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('keyup', (event) => {
   if (event.key === 'Shift') syncCropCursor(false);
 });
-window.addEventListener('resize', syncCropEditor);
+// Das Vorschaufeld aendert seine Groesse auch ohne Fensteraenderung, etwa wenn
+// das Ergebnis-Panel erscheint und die Spalte schmaler wird. Der Crop-Rahmen
+// muss dann neu vermessen werden, sonst bleibt er auf der alten Groesse stehen.
+if (typeof ResizeObserver === 'function') {
+  new ResizeObserver(() => syncCropEditor()).observe(sourceWrap);
+} else {
+  window.addEventListener('resize', syncCropEditor);
+}
 
 function endCropDrag(event) {
   if (!cropDrag || cropDrag.pointerId !== event.pointerId) return;
