@@ -55,9 +55,20 @@ loadVersion();
 // --- Zoom -------------------------------------------------------------------
 // Beide Vorschauen lassen sich vergrößern, um Details zu beurteilen. Der Zoom
 // ist reine Ansicht: er verändert weder den Crop noch die Anfrage an den Server.
-const minZoom = 1;
-const maxZoom = 8;
-const zoomStep = 1.5;
+// Feste Zoomstufen, damit die Anzeige runde Werte zeigt statt krummer
+// Vielfacher. Das Mausrad zoomt weiterhin stufenlos; + und - springen zur
+// nächsten Stufe darüber bzw. darunter.
+const zoomStops = [1, 1.25, 1.5, 2, 3, 4, 6, 8];
+const minZoom = zoomStops[0];
+const maxZoom = zoomStops[zoomStops.length - 1];
+
+// Nächste Stufe ober- bzw. unterhalb des aktuellen Zooms. Die Toleranz
+// verhindert, dass eine gerade erreichte Stufe sich selbst als Ziel meldet.
+function nextZoomStop(scale, direction) {
+  const stops = direction > 0 ? zoomStops : [...zoomStops].reverse();
+  const found = stops.find((stop) => (direction > 0 ? stop > scale + 0.001 : stop < scale - 0.001));
+  return found ?? (direction > 0 ? maxZoom : minZoom);
+}
 
 function createZoom(wrap, image, controls, { onChange, blocked } = {}) {
   const levelButton = controls.querySelector('[data-zoom-level]');
@@ -191,8 +202,8 @@ function createZoom(wrap, image, controls, { onChange, blocked } = {}) {
     if (state.scale > 1) event.preventDefault();
   });
 
-  inButton.addEventListener('click', () => zoomTo(state.scale * zoomStep));
-  outButton.addEventListener('click', () => zoomTo(state.scale / zoomStep));
+  inButton.addEventListener('click', () => zoomTo(nextZoomStop(state.scale, 1)));
+  outButton.addEventListener('click', () => zoomTo(nextZoomStop(state.scale, -1)));
   levelButton.addEventListener('click', () => zoomTo(minZoom));
 
   return {
