@@ -19,6 +19,7 @@ const resultState = document.querySelector('#result-state');
 const livePreview = document.querySelector('#live-preview');
 const cropEditor = document.querySelector('#crop-editor');
 const cropSelection = document.querySelector('#crop-selection');
+const cropLabel = cropSelection.querySelector('span');
 const resetCrop = document.querySelector('#reset-crop');
 let selectedFile;
 let sourceURL;
@@ -384,6 +385,17 @@ function syncCropEditor() {
   cropSelection.style.width = `${cropState.width * 100}%`;
   cropSelection.style.height = `${cropState.height * 100}%`;
   cropEditor.hidden = false;
+  syncCropLabel(width, height);
+}
+
+// A small selection would be hidden behind its own label, so the label moves outside the frame.
+function syncCropLabel(editorWidth, editorHeight) {
+  const fitsInside = cropState.width * editorWidth >= cropLabel.offsetWidth + 16
+    && cropState.height * editorHeight >= cropLabel.offsetHeight + 16;
+  cropSelection.classList.toggle('label-outside', !fitsInside);
+  // Above the frame the label would be clipped once the selection sits at the top edge.
+  const roomAbove = cropState.y * editorHeight >= cropLabel.offsetHeight + 7;
+  cropSelection.classList.toggle('label-below', !fitsInside && !roomAbove);
 }
 
 cropEditor.addEventListener('pointerdown', (event) => {
