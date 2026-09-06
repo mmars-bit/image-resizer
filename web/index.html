@@ -52,7 +52,7 @@
 
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <h2 id="settings-heading">Einstellungen</h2>
-          <fieldset class="settings-group">
+          <fieldset class="settings-group size-group">
             <legend>Zielgröße</legend>
             <div class="field-grid dimensions">
               <label>Breite <input name="width" id="width" type="number" min="1" max="16384" value="1920" required inputmode="numeric"></label>
@@ -72,7 +72,7 @@
             </label>
           </fieldset>
 
-          <fieldset class="settings-group">
+          <fieldset class="settings-group mode-group">
             <legend>Modus</legend>
             <label class="radio"><input type="radio" name="mode" value="crop"> <span><strong>Füllen und zuschneiden</strong><small>Füllt die Zielgröße ohne Verzerrung. Wählen Sie den sichtbaren Bildausschnitt.</small></span></label>
             <label class="radio"><input type="radio" name="mode" value="stretch" checked> <span><strong>Exakt dehnen</strong><small>Dehnt das ganze Bild oder einen gewählten Ausschnitt auf die Zielgröße.</small></span></label>
@@ -93,7 +93,7 @@
             <legend>Ausgabe</legend>
             <div class="field-grid">
               <label>Ausgabeformat<select name="format" id="format"><option value="jpeg" selected>JPEG</option><option value="webp">WebP</option><option value="png">PNG</option><option value="avif">AVIF</option></select></label>
-              <label id="quality-wrap">Qualität <output id="quality-value">85</output><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
+              <label id="quality-wrap"><span class="label-row">Qualität <output id="quality-value">85</output></span><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
             </div>
             <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
           </fieldset>
