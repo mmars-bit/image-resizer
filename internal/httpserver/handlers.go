@@ -28,7 +28,7 @@ func (s *Server) resize(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Bitte waehlen Sie eine Bilddatei aus.")
+		writeError(w, http.StatusBadRequest, "Bitte wählen Sie eine Bilddatei aus.")
 		return
 	}
 	defer file.Close()
@@ -37,7 +37,7 @@ func (s *Server) resize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if header.Size > s.config.MaxUploadBytes {
-		writeError(w, http.StatusRequestEntityTooLarge, "Die Datei ist zu gross.")
+		writeError(w, http.StatusRequestEntityTooLarge, "Die Datei ist zu groß.")
 		return
 	}
 	data, err := io.ReadAll(io.LimitReader(file, s.config.MaxUploadBytes+1))
@@ -46,7 +46,7 @@ func (s *Server) resize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if int64(len(data)) > s.config.MaxUploadBytes {
-		writeError(w, http.StatusRequestEntityTooLarge, "Die Datei ist zu gross.")
+		writeError(w, http.StatusRequestEntityTooLarge, "Die Datei ist zu groß.")
 		return
 	}
 	req, err := parseRequest(r)
@@ -84,10 +84,10 @@ func (s *Server) resize(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMultipartError(w http.ResponseWriter, err error) {
 	var maxErr *http.MaxBytesError
 	if errors.As(err, &maxErr) {
-		writeError(w, http.StatusRequestEntityTooLarge, "Die Datei ist zu gross.")
+		writeError(w, http.StatusRequestEntityTooLarge, "Die Datei ist zu groß.")
 		return
 	}
-	writeError(w, http.StatusBadRequest, "Ungueltiger Upload. Bitte waehlen Sie eine Bilddatei aus.")
+	writeError(w, http.StatusBadRequest, "Ungültiger Upload. Bitte wählen Sie eine Bilddatei aus.")
 }
 
 func parseRequest(r *http.Request) (image.Request, error) {
@@ -178,19 +178,19 @@ func defaultValue(value, fallback string) string {
 }
 
 func requestErrorMessage(error) string {
-	return "Bitte geben Sie gueltige Werte fuer Breite, Hoehe und Qualitaet an."
+	return "Bitte geben Sie gültige Werte für Breite, Höhe und Qualität an."
 }
 
 func processError(err error) (int, string) {
 	switch {
 	case errors.Is(err, image.ErrInvalidDimensions):
-		return http.StatusBadRequest, "Die Zielaufloesung ist ungueltig oder zu gross."
+		return http.StatusBadRequest, "Die Zielauflösung ist ungültig oder zu groß."
 	case errors.Is(err, image.ErrInvalidMode), errors.Is(err, image.ErrInvalidFormat), errors.Is(err, image.ErrInvalidQuality), errors.Is(err, image.ErrInvalidCrop), errors.Is(err, image.ErrInvalidManualCrop), errors.Is(err, image.ErrInvalidBackground):
-		return http.StatusBadRequest, "Die gewaehlten Verarbeitungseinstellungen sind ungueltig."
+		return http.StatusBadRequest, "Die gewählten Verarbeitungseinstellungen sind ungültig."
 	case errors.Is(err, image.ErrTooManyPixels):
 		return http.StatusRequestEntityTooLarge, "Das Bild hat zu viele Pixel."
 	case errors.Is(err, image.ErrUnsupportedImage):
-		return http.StatusUnprocessableEntity, "Dieses Bildformat wird nicht unterstuetzt oder die Datei ist beschaedigt."
+		return http.StatusUnprocessableEntity, "Dieses Bildformat wird nicht unterstützt oder die Datei ist beschädigt."
 	default:
 		return http.StatusInternalServerError, "Das Bild konnte nicht verarbeitet werden."
 	}

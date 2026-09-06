@@ -13,18 +13,18 @@
     <header class="hero">
       <p class="eyebrow">Lokale Bildverarbeitung <span id="app-version" class="version">dev</span></p>
       <h1>Image Resizer</h1>
-      <p>Skalieren, zuschneiden und konvertieren. Dateien werden nur f&uuml;r die Verarbeitung im Speicher gehalten.</p>
+      <p>Skalieren, zuschneiden und konvertieren. Dateien werden nur für die Verarbeitung im Speicher gehalten.</p>
     </header>
 
     <section class="panel upload-panel" aria-labelledby="upload-heading">
       <h2 id="upload-heading">Bild hochladen</h2>
-      <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Bilddatei auswaehlen oder hier ablegen">
+      <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Bilddatei auswählen oder hier ablegen">
         <input id="file" type="file" accept="image/*,.heic,.heif,.avif" hidden>
         <div class="drop-icon" aria-hidden="true">+</div>
         <strong>Bild hier hineinziehen</strong>
         <span>oder</span>
-        <button id="choose-file" class="button secondary" type="button">Datei ausw&auml;hlen</button>
-        <small>Ein Bild aus der Zwischenablage kann ebenfalls eingef&uuml;gt werden.</small>
+        <button id="choose-file" class="button secondary" type="button">Datei auswählen</button>
+        <small>Ein Bild aus der Zwischenablage kann ebenfalls eingefügt werden.</small>
       </div>
       <p id="upload-error" class="notice error" role="alert" hidden></p>
     </section>
@@ -41,24 +41,24 @@
             <div id="crop-editor" class="crop-editor" hidden aria-label="Crop-Auswahl bearbeiten">
               <div id="crop-selection" class="crop-selection"><span>Crop</span><i class="crop-handle top-left" data-crop-handle="top-left" aria-hidden="true"></i><i class="crop-handle top-right" data-crop-handle="top-right" aria-hidden="true"></i><i class="crop-handle bottom-left" data-crop-handle="bottom-left" aria-hidden="true"></i><i class="crop-handle bottom-right" data-crop-handle="bottom-right" aria-hidden="true"></i></div>
             </div>
-            <span id="source-placeholder">Noch kein Bild ausgew&auml;hlt</span>
+            <span id="source-placeholder">Noch kein Bild ausgewählt</span>
           </div>
           <dl id="source-details" class="details" hidden>
             <div><dt>Datei</dt><dd id="source-name"></dd></div>
-            <div><dt>Aufl&ouml;sung</dt><dd id="source-resolution"></dd></div>
+            <div><dt>Auflösung</dt><dd id="source-resolution"></dd></div>
             <div><dt>Format</dt><dd id="source-format"></dd></div>
-            <div><dt>Gr&ouml;&szlig;e</dt><dd id="source-size"></dd></div>
+            <div><dt>Größe</dt><dd id="source-size"></dd></div>
           </dl>
         </section>
 
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <h2 id="settings-heading">Einstellungen</h2>
-          <fieldset class="settings-group">
-            <legend>Zielgroesse</legend>
+          <fieldset class="settings-group size-group">
+            <legend>Zielgröße</legend>
             <div class="field-grid dimensions">
               <label>Breite <input name="width" id="width" type="number" min="1" max="16384" value="1920" required inputmode="numeric"></label>
-              <label>H&ouml;he <input name="height" id="height" type="number" min="1" max="16384" value="1080" required inputmode="numeric"></label>
-              <button id="aspect-ratio-lock" class="aspect-ratio-lock" type="button" aria-pressed="false">Seitenverh&auml;ltnis sperren</button>
+              <label>Höhe <input name="height" id="height" type="number" min="1" max="16384" value="1080" required inputmode="numeric"></label>
+              <button id="aspect-ratio-lock" class="aspect-ratio-lock" type="button" aria-pressed="false">Seitenverhältnis sperren</button>
             </div>
             <label>Preset
               <select id="preset">
@@ -73,32 +73,32 @@
             </label>
           </fieldset>
 
-          <fieldset class="settings-group">
+          <fieldset class="settings-group mode-group">
             <legend>Modus</legend>
-            <label class="radio"><input type="radio" name="mode" value="crop"> <span><strong>Fuellen und zuschneiden</strong><small>F&uuml;llt die Zielgr&ouml;&szlig;e ohne Verzerrung. W&auml;hlen Sie den sichtbaren Bildausschnitt.</small></span></label>
-            <label class="radio"><input type="radio" name="mode" value="stretch" checked> <span><strong>Exakt dehnen</strong><small>Dehnt das ganze Bild oder einen gew&auml;hlten Ausschnitt auf die Zielgr&ouml;&szlig;e.</small></span></label>
-            <label class="radio"><input type="radio" name="mode" value="fit"> <span><strong>Einpassen</strong><small>Zeigt das ganze Bild innerhalb der Zielgr&ouml;&szlig;e mit Hintergrundfl&auml;che.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="crop"> <span><strong>Füllen und zuschneiden</strong><small>Füllt die Zielgröße ohne Verzerrung. Wählen Sie den sichtbaren Bildausschnitt.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="stretch" checked> <span><strong>Exakt dehnen</strong><small>Dehnt das ganze Bild oder einen gewählten Ausschnitt auf die Zielgröße.</small></span></label>
+            <label class="radio"><input type="radio" name="mode" value="fit"> <span><strong>Einpassen</strong><small>Zeigt das ganze Bild innerhalb der Zielgröße mit Hintergrundfläche.</small></span></label>
           </fieldset>
 
           <div id="crop-options" class="conditional">
-            <p id="crop-help" class="crop-help">Der Rahmen folgt dem Zielseitenverh&auml;ltnis. Ziehen Sie ihn zum Verschieben oder die Ecken zum Anpassen.</p>
-            <button id="reset-crop" class="button secondary compact crop-reset" type="button">Auswahl zur&uuml;cksetzen</button>
+            <p id="crop-help" class="crop-help">Der Rahmen folgt dem Zielseitenverhältnis. Ziehen Sie ihn zum Verschieben oder die Ecken zum Anpassen.</p>
+            <button id="reset-crop" class="button secondary compact crop-reset" type="button">Auswahl zurücksetzen</button>
           </div>
           <div id="fit-options" class="conditional" hidden>
-            <label>Hintergrund<select name="background" id="background"><option value="black" selected>Schwarz</option><option value="white">Wei&szlig;</option><option value="transparent">Transparent</option><option value="custom">Eigene Farbe</option></select></label>
+            <label>Hintergrund<select name="background" id="background"><option value="black" selected>Schwarz</option><option value="white">Weiß</option><option value="transparent">Transparent</option><option value="custom">Eigene Farbe</option></select></label>
             <label id="custom-color-wrap" hidden>Eigene Farbe<input id="custom-color" type="color" value="#2b2b36"></label>
-            <p id="background-help" class="conditional-help" hidden>JPEG unterst&uuml;tzt keine Transparenz. Schwarz wird verwendet.</p>
+            <p id="background-help" class="conditional-help" hidden>JPEG unterstützt keine Transparenz. Schwarz wird verwendet.</p>
           </div>
 
           <fieldset class="settings-group output-settings">
             <legend>Ausgabe</legend>
             <div class="field-grid">
               <label>Ausgabeformat<select name="format" id="format"><option value="jpeg" selected>JPEG</option><option value="webp">WebP</option><option value="png">PNG</option><option value="avif">AVIF</option></select></label>
-              <label id="quality-wrap">Qualit&auml;t <output id="quality-value">85</output><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
+              <label id="quality-wrap"><span class="label-row">Qualität <output id="quality-value">85</output></span><input name="quality" id="quality" type="range" min="1" max="100" value="85"></label>
             </div>
             <label class="check"><input name="stripMetadata" type="checkbox" checked> Metadaten entfernen <small>(inklusive EXIF und GPS)</small></label>
           </fieldset>
-          <label class="check live-preview-toggle"><input id="live-preview" type="checkbox" checked> Live-Vorschau <small>(erstellt das Ergebnis automatisch, sobald eine &Auml;nderung abgeschlossen ist)</small></label>
+          <label class="check live-preview-toggle"><input id="live-preview" type="checkbox" checked> Live-Vorschau <small>(erstellt das Ergebnis automatisch, sobald eine Änderung abgeschlossen ist)</small></label>
           <p id="form-error" class="notice error" role="alert" hidden></p>
           <div class="form-actions">
             <button class="button primary" type="submit" data-submit disabled>Bild erstellen</button>
