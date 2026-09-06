@@ -43,6 +43,14 @@
             </div>
             <span id="source-placeholder">Noch kein Bild ausgew&auml;hlt</span>
           </div>
+          <div class="preview-toolbar">
+            <p id="zoom-hint" class="zoom-hint" hidden>Zoomen mit Strg + Mausrad oder den Schaltflächen. Im Zoom verschiebt Alt + Ziehen oder die mittlere Maustaste den Ausschnitt, und das Mausrad zoomt weiter. Mit Shift + linker Maustaste lässt sich die Crop-Box verschieben.</p>
+            <div id="source-zoom-controls" class="zoom-controls" hidden>
+              <button class="zoom-button" type="button" data-zoom-out title="Verkleinern" aria-label="Verkleinern">&minus;</button>
+              <button class="zoom-button zoom-level" type="button" data-zoom-level title="Zoom zurücksetzen" aria-label="Zoom zurücksetzen">100 %</button>
+              <button class="zoom-button" type="button" data-zoom-in title="Vergrößern" aria-label="Vergrößern">+</button>
+            </div>
+          </div>
           <dl id="source-details" class="details" hidden>
             <div><dt>Datei</dt><dd id="source-name"></dd></div>
             <div><dt>Aufl&ouml;sung</dt><dd id="source-resolution"></dd></div>
@@ -112,7 +120,16 @@
     <section id="result-panel" class="panel result-panel" aria-labelledby="result-heading" hidden>
       <div class="section-title"><h2 id="result-heading" tabindex="-1">Ergebnis</h2><span id="result-state" class="status success">Bereit</span></div>
       <div class="result-layout">
-        <div class="preview"><img id="result-preview" alt="Vorschau des bearbeiteten Bilds"></div>
+        <div class="preview-column">
+          <div id="result-preview-wrap" class="preview"><img id="result-preview" alt="Vorschau des bearbeiteten Bilds" draggable="false"></div>
+          <div class="preview-toolbar toolbar-end">
+            <div id="result-zoom-controls" class="zoom-controls" hidden>
+              <button class="zoom-button" type="button" data-zoom-out title="Verkleinern" aria-label="Verkleinern">&minus;</button>
+              <button class="zoom-button zoom-level" type="button" data-zoom-level title="Zoom zurücksetzen" aria-label="Zoom zurücksetzen">100 %</button>
+              <button class="zoom-button" type="button" data-zoom-in title="Vergrößern" aria-label="Vergrößern">+</button>
+            </div>
+          </div>
+        </div>
         <div class="result-actions">
           <p id="result-details"></p>
           <a id="download" class="button primary" download>Herunterladen</a>

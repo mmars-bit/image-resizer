@@ -21,6 +21,8 @@ const cropEditor = document.querySelector('#crop-editor');
 const cropSelection = document.querySelector('#crop-selection');
 const resetCrop = document.querySelector('#reset-crop');
 const appVersion = document.querySelector('#app-version');
+const resultWrap = document.querySelector('#result-preview-wrap');
+const zoomHint = document.querySelector('#zoom-hint');
 let selectedFile;
 let sourceURL;
 let resultURL;
@@ -49,6 +51,179 @@ async function loadVersion() {
 }
 
 loadVersion();
+
+// --- Zoom -------------------------------------------------------------------
+// Beide Vorschauen lassen sich vergrößern, um Details zu beurteilen. Der Zoom
+// ist reine Ansicht: er verändert weder den Crop noch die Anfrage an den Server.
+// Feste Zoomstufen, damit die Anzeige runde Werte zeigt statt krummer
+// Vielfacher. Das Mausrad zoomt weiterhin stufenlos; + und - springen zur
+// nächsten Stufe darüber bzw. darunter.
+const zoomStops = [1, 1.25, 1.5, 2, 3, 4, 6, 8];
+const minZoom = zoomStops[0];
+const maxZoom = zoomStops[zoomStops.length - 1];
+
+// Nächste Stufe ober- bzw. unterhalb des aktuellen Zooms. Die Toleranz
+// verhindert, dass eine gerade erreichte Stufe sich selbst als Ziel meldet.
+function nextZoomStop(scale, direction) {
+  const stops = direction > 0 ? zoomStops : [...zoomStops].reverse();
+  const found = stops.find((stop) => (direction > 0 ? stop > scale + 0.001 : stop < scale - 0.001));
+  return found ?? (direction > 0 ? maxZoom : minZoom);
+}
+
+function createZoom(wrap, image, controls, { onChange, blocked } = {}) {
+  const levelButton = controls.querySelector('[data-zoom-level]');
+  const inButton = controls.querySelector('[data-zoom-in]');
+  const outButton = controls.querySelector('[data-zoom-out]');
+  const state = { scale: 1, x: 0, y: 0 };
+  let pan;
+
+  // Die gemalte Bildfläche bei Zoom 1, gemessen im Vorschaufeld. `object-fit:
+  // contain` lässt je nach Seitenverhältnis Ränder frei, die hier abgezogen werden.
+  function baseRect() {
+    const boxWidth = image.clientWidth;
+    const boxHeight = image.clientHeight;
+    const aspect = image.naturalWidth / image.naturalHeight;
+    if (!boxWidth || !boxHeight || !Number.isFinite(aspect) || aspect <= 0) return undefined;
+    const width = Math.min(boxWidth, boxHeight * aspect);
+    const height = width / aspect;
+    return {
+      left: image.offsetLeft + (boxWidth - width) / 2,
+      top: image.offsetTop + (boxHeight - height) / 2,
+      width,
+      height,
+    };
+  }
+
+  // Die Bildfläche im aktuellen Zoom. Der Crop-Rahmen richtet sich danach aus.
+  function rect() {
+    const base = baseRect();
+    if (!base) return undefined;
+    const width = base.width * state.scale;
+    const height = base.height * state.scale;
+    return {
+      left: base.left + (base.width - width) / 2 + state.x,
+      top: base.top + (base.height - height) / 2 + state.y,
+      width,
+      height,
+    };
+  }
+
+  // Hält den Ausschnitt im Bild: verschoben wird nur, solange eine Kante außerhalb liegt.
+  function clampPan() {
+    const base = baseRect();
+    if (!base) {
+      state.x = 0;
+      state.y = 0;
+      return;
+    }
+    const limitX = Math.max(0, (base.width * state.scale - wrap.clientWidth) / 2);
+    const limitY = Math.max(0, (base.height * state.scale - wrap.clientHeight) / 2);
+    state.x = clamp(state.x, -limitX, limitX);
+    state.y = clamp(state.y, -limitY, limitY);
+  }
+
+  function available() {
+    // Nach dem Entfernen der Quelle meldet das Bild noch kurz seine alten Maße.
+    return Boolean(image.naturalWidth) && Boolean(image.getAttribute('src')) && !image.hidden;
+  }
+
+  function apply() {
+    clampPan();
+    image.style.transform = state.scale === 1 && !state.x && !state.y
+      ? ''
+      : `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+    wrap.classList.toggle('can-pan', available() && state.scale > 1);
+    // Ab starker Vergrößerung zeigt die Vorschau echte Pixel statt Interpolation.
+    wrap.classList.toggle('pixel-zoom', state.scale >= 4);
+    controls.hidden = !available();
+    levelButton.textContent = `${Math.round(state.scale * 100)} %`;
+    outButton.disabled = state.scale <= minZoom + 0.001;
+    inButton.disabled = state.scale >= maxZoom - 0.001;
+    if (onChange) onChange();
+  }
+
+  // `focus` ist der Punkt im Vorschaufeld, der beim Zoomen an Ort und Stelle bleibt.
+  function zoomTo(scale, focus) {
+    const next = clamp(scale, minZoom, maxZoom);
+    const base = baseRect();
+    if (base && focus && next !== minZoom) {
+      const centerX = base.left + base.width / 2;
+      const centerY = base.top + base.height / 2;
+      const factor = next / state.scale;
+      state.x = (focus.x - centerX) - (focus.x - centerX - state.x) * factor;
+      state.y = (focus.y - centerY) - (focus.y - centerY - state.y) * factor;
+    }
+    state.scale = next;
+    if (next === minZoom) {
+      state.x = 0;
+      state.y = 0;
+    }
+    apply();
+  }
+
+  function pointIn(event) {
+    const bounds = wrap.getBoundingClientRect();
+    return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+  }
+
+  wrap.addEventListener('wheel', (event) => {
+    // In der Ausgangsgröße gehört das Mausrad der Seite. Der Zoom beginnt mit
+    // Strg (oder der Trackpad-Geste) und übernimmt das Rad, solange er aktiv ist.
+    if (!available() || (state.scale <= minZoom && !event.ctrlKey && !event.metaKey)) return;
+    event.preventDefault();
+    // Zeilen- und Seitenschritte auf Pixel bringen, damit alle Eingabegeräte gleich zoomen.
+    const steps = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? wrap.clientHeight : 1;
+    zoomTo(state.scale * Math.exp(-event.deltaY * steps * 0.0015), pointIn(event));
+  }, { passive: false });
+
+  wrap.addEventListener('pointerdown', (event) => {
+    if (!available() || state.scale <= 1) return;
+    const panButton = event.button === 1 || (event.button === 0 && event.altKey);
+    // Ohne Modifikator verschiebt die linke Taste nur, wenn der Crop-Editor die Geste nicht nimmt.
+    if (!panButton && (event.button !== 0 || (blocked && blocked()))) return;
+    event.preventDefault();
+    pan = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: state.x, originY: state.y };
+    wrap.setPointerCapture(event.pointerId);
+    wrap.classList.add('panning');
+  });
+  wrap.addEventListener('pointermove', (event) => {
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    state.x = pan.originX + event.clientX - pan.startX;
+    state.y = pan.originY + event.clientY - pan.startY;
+    apply();
+  });
+  ['pointerup', 'pointercancel'].forEach((eventName) => wrap.addEventListener(eventName, (event) => {
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    pan = undefined;
+    wrap.releasePointerCapture(event.pointerId);
+    wrap.classList.remove('panning');
+  }));
+  wrap.addEventListener('dragstart', (event) => {
+    if (state.scale > 1) event.preventDefault();
+  });
+
+  inButton.addEventListener('click', () => zoomTo(nextZoomStop(state.scale, 1)));
+  outButton.addEventListener('click', () => zoomTo(nextZoomStop(state.scale, -1)));
+  levelButton.addEventListener('click', () => zoomTo(minZoom));
+
+  return {
+    rect,
+    refresh: apply,
+    reset() {
+      state.scale = 1;
+      state.x = 0;
+      state.y = 0;
+      apply();
+    },
+  };
+}
+
+const sourceZoom = createZoom(sourceWrap, sourcePreview, document.querySelector('#source-zoom-controls'), {
+  onChange: () => syncCropEditor(),
+  blocked: () => Boolean(cropDrag),
+});
+const resultZoom = createZoom(resultWrap, resultPreview, document.querySelector('#result-zoom-controls'));
+resultPreview.addEventListener('load', () => resultZoom.refresh());
 
 function saveSettings() {
   try {
@@ -196,11 +371,15 @@ function selectFile(file) {
   sourceDetails.hidden = false;
   if (sourceURL) URL.revokeObjectURL(sourceURL);
   sourceURL = URL.createObjectURL(file);
+  sourceZoom.reset();
+  resultZoom.reset();
   sourcePreview.onload = () => {
     document.querySelector('#source-resolution').textContent = `${sourcePreview.naturalWidth} x ${sourcePreview.naturalHeight} px`;
     sourcePreview.hidden = false;
     sourcePlaceholder.hidden = true;
     sourceWrap.classList.remove('empty');
+    zoomHint.hidden = false;
+    sourceZoom.reset();
     resetCropSelection();
     syncCropEditor();
     schedulePreview();
@@ -210,6 +389,7 @@ function selectFile(file) {
     sourcePreview.hidden = true;
     sourcePlaceholder.textContent = 'Vorschau fuer dieses Format nicht verfuegbar';
     sourcePlaceholder.hidden = false;
+    zoomHint.hidden = true;
     cropEditor.hidden = true;
     // Without browser decoding there is no crop to place, but the server can still render.
     cropState = undefined;
@@ -236,6 +416,9 @@ function resetImage() {
   sourcePlaceholder.textContent = 'Noch kein Bild ausgew\u00e4hlt';
   sourcePlaceholder.hidden = false;
   sourceWrap.classList.add('empty');
+  zoomHint.hidden = true;
+  sourceZoom.reset();
+  resultZoom.reset();
   cropEditor.hidden = true;
   sourceDetails.hidden = true;
   document.querySelector('#file-status').textContent = 'Kein Bild';
@@ -384,15 +567,16 @@ function syncCropEditor() {
     cropEditor.hidden = true;
     return;
   }
-  const sourceAspect = sourcePreview.naturalWidth / sourcePreview.naturalHeight;
-  const containerWidth = sourceWrap.clientWidth;
-  const containerHeight = sourceWrap.clientHeight;
-  const width = Math.min(containerWidth, containerHeight * sourceAspect);
-  const height = width / sourceAspect;
-  cropEditor.style.width = `${width}px`;
-  cropEditor.style.height = `${height}px`;
-  cropEditor.style.left = `${(containerWidth - width) / 2}px`;
-  cropEditor.style.top = `${(containerHeight - height) / 2}px`;
+  // Der Rahmen liegt genau auf der Bildfläche, also folgt er Zoom und Verschiebung.
+  const area = sourceZoom.rect();
+  if (!area) {
+    cropEditor.hidden = true;
+    return;
+  }
+  cropEditor.style.width = `${area.width}px`;
+  cropEditor.style.height = `${area.height}px`;
+  cropEditor.style.left = `${area.left}px`;
+  cropEditor.style.top = `${area.top}px`;
   cropSelection.style.left = `${cropState.x * 100}%`;
   cropSelection.style.top = `${cropState.y * 100}%`;
   cropSelection.style.width = `${cropState.width * 100}%`;
@@ -402,6 +586,8 @@ function syncCropEditor() {
 
 cropEditor.addEventListener('pointerdown', (event) => {
   if (!sourcePreview.naturalWidth || event.button !== 0) return;
+  // Alt + Ziehen verschiebt den Zoomausschnitt, statt den Crop zu verändern.
+  if (event.altKey) return;
   // Keeps the browser from starting a text selection or a native image drag on top of the overlay.
   event.preventDefault();
   const point = cropPoint(event);
@@ -465,10 +651,16 @@ document.addEventListener('keyup', (event) => {
 // Das Vorschaufeld aendert seine Groesse auch ohne Fensteraenderung, etwa wenn
 // das Ergebnis-Panel erscheint und die Spalte schmaler wird. Der Crop-Rahmen
 // muss dann neu vermessen werden, sonst bleibt er auf der alten Groesse stehen.
+function remeasurePreviews() {
+  sourceZoom.refresh();
+  resultZoom.refresh();
+}
 if (typeof ResizeObserver === 'function') {
-  new ResizeObserver(() => syncCropEditor()).observe(sourceWrap);
+  const observer = new ResizeObserver(remeasurePreviews);
+  observer.observe(sourceWrap);
+  observer.observe(resultWrap);
 } else {
-  window.addEventListener('resize', syncCropEditor);
+  window.addEventListener('resize', remeasurePreviews);
 }
 
 function endCropDrag(event) {
