@@ -1,36 +1,36 @@
 # Image Resizer
 
-Kleines, eigenstaendiges Web-Tool zum Hochladen, Skalieren, Zuschneiden und Konvertieren von Bildern. Go liefert die eingebettete HTML-, CSS- und JavaScript-Oberflaeche direkt aus; `libvips` verarbeitet Bilder effizient im Speicher. Es gibt keine Datenbank, Anmeldung oder persistente Uploads.
+Kleines, eigenständiges Web-Tool zum Hochladen, Skalieren, Zuschneiden und Konvertieren von Bildern. Go liefert die eingebettete HTML-, CSS- und JavaScript-Oberfläche direkt aus; `libvips` verarbeitet Bilder effizient im Speicher. Es gibt keine Datenbank, Anmeldung oder persistente Uploads.
 
 ## Features
 
-- Drag and Drop, Dateiauswahl und Einfuegen aus der Zwischenablage
-- Frei waehlbare Zielgroessen sowie gaengige Presets
-- Seitenverhaeltnis-Sperre und Presets fuer gaengige Zielgroessen
-- Seitenverhaeltnisgebundene Crop-Auswahl fuer Crop / Cover sowie freie Ausschnittauswahl fuer Stretch
-- Crop skaliert den ausgewaehlten Ausschnitt ohne Verzerrung auf die Zielgroesse
+- Drag and Drop, Dateiauswahl und Einfügen aus der Zwischenablage
+- Frei wählbare Zielgrößen sowie gängige Presets
+- Seitenverhältnis-Sperre und Presets für gängige Zielgrößen
+- Seitenverhältnisgebundene Crop-Auswahl für Crop / Cover sowie freie Ausschnittauswahl für Stretch
+- Crop skaliert den ausgewählten Ausschnitt ohne Verzerrung auf die Zielgröße
 - Resize-Modi: Stretch, Crop / Cover und Fit / Contain mit Hintergrundfarbe
-- Ausgabe als JPEG, PNG, WebP und AVIF (wenn der Container-Codec AVIF unterstuetzt)
+- Ausgabe als JPEG, PNG, WebP und AVIF (wenn der Container-Codec AVIF unterstützt)
 - Lokale Originalvorschau sowie serverseitige Ergebnisvorschau und Download
-- Live-Vorschau: das Ergebnis wird nach einer kurzen Pause automatisch neu erzeugt, sobald Crop oder Einstellungen fertig geaendert sind (abschaltbar)
-- Einstellbare Qualitaet fuer JPEG, WebP und AVIF
-- Metadatenentfernung inklusive EXIF/GPS ist standardmaessig aktiv
+- Live-Vorschau: das Ergebnis wird nach einer kurzen Pause automatisch neu erzeugt, sobald Crop oder Einstellungen fertig geändert sind (abschaltbar)
+- Einstellbare Qualität für JPEG, WebP und AVIF
+- Metadatenentfernung inklusive EXIF/GPS ist standardmäßig aktiv
 - Validierung, Upload- und Pixelgrenzen sowie saubere Fehlermeldungen
 
-Die Weboberflaeche startet mit Stretch und JPEG als Ausgabeformat. Bei einem gewaehlten Zielseitenverhaeltnis wird die Hoehe aus der Breite berechnet.
+Die Weboberfläche startet mit Stretch und JPEG als Ausgabeformat. Bei einem gewählten Zielseitenverhältnis wird die Höhe aus der Breite berechnet.
 
 ## Architektur
 
 - `cmd/server`: Go-Startpunkt und Konfiguration aus Umgebungsvariablen
 - `internal/image`: Bildlogik und Validierung mit `govips` / `libvips`
 - `internal/httpserver`: HTTP-Endpunkte und Multipart-Upload
-- `web`: eingebettete statische Vanilla-JavaScript-Oberflaeche
+- `web`: eingebettete statische Vanilla-JavaScript-Oberfläche
 
-Dateien werden als begrenzter Multipart-Request eingelesen und ausschliesslich im Arbeitsspeicher verarbeitet. Falls der Multipart-Parser temporaere Dateien anlegt, werden diese vor Ende des Requests mit `RemoveAll` entfernt. Der Server verarbeitet bewusst nur eine Konvertierung gleichzeitig, um den RAM-Bedarf im Einzelcontainer vorhersehbar zu halten.
+Dateien werden als begrenzter Multipart-Request eingelesen und ausschließlich im Arbeitsspeicher verarbeitet. Falls der Multipart-Parser temporäre Dateien anlegt, werden diese vor Ende des Requests mit `RemoveAll` entfernt. Der Server verarbeitet bewusst nur eine Konvertierung gleichzeitig, um den RAM-Bedarf im Einzelcontainer vorhersehbar zu halten.
 
 ## Voraussetzungen
 
-Fuer den Normalbetrieb ist nur Docker mit aktivem Linux-Container-Daemon erforderlich. Es ist kein Node.js- oder Host-Build-Schritt notwendig.
+Für den Normalbetrieb ist nur Docker mit aktivem Linux-Container-Daemon erforderlich. Es ist kein Node.js- oder Host-Build-Schritt notwendig.
 
 ## Docker
 
@@ -47,7 +47,7 @@ Danach ist die Anwendung unter <http://localhost:8080> erreichbar.
 docker compose up -d --build
 ```
 
-Die Anwendung ist anschliessend unter <http://localhost:8080> erreichbar. Beenden mit:
+Die Anwendung ist anschließend unter <http://localhost:8080> erreichbar. Beenden mit:
 
 ```bash
 docker compose down
@@ -58,22 +58,22 @@ docker compose down
 | Variable | Standard | Bedeutung |
 | --- | ---: | --- |
 | `PORT` | `8080` | HTTP-Port |
-| `MAX_UPLOAD_MB` | `50` | Maximale Uploadgroesse in MB |
+| `MAX_UPLOAD_MB` | `50` | Maximale Uploadgröße in MB |
 | `MAX_WIDTH` | `16384` | Maximale Zielbreite in Pixel |
-| `MAX_HEIGHT` | `16384` | Maximale Zielhoehe in Pixel |
+| `MAX_HEIGHT` | `16384` | Maximale Zielhöhe in Pixel |
 | `MAX_MEGAPIXELS` | `100` | Maximale Pixelanzahl des Eingabebildes |
 
-Ungueltige oder nicht-positive Limitwerte verhindern den Serverstart. Nicht numerische Umgebungswerte verwenden den jeweiligen Standardwert.
+Ungültige oder nicht-positive Limitwerte verhindern den Serverstart. Nicht numerische Umgebungswerte verwenden den jeweiligen Standardwert.
 
-## Unterstuetzte Bildformate
+## Unterstützte Bildformate
 
-Der Container installiert `libvips` und HEIF-Codec-Plugins. Damit stehen in der Standardkonfiguration JPEG, PNG, WebP, TIFF, GIF, HEIC/HEIF und AVIF zur Verfuegung, soweit der jeweilige `libvips`-Decoder das konkrete Bild unterstuetzt. Nicht unterstuetzte oder beschaedigte Dateien liefern eine kontrollierte Fehlermeldung.
+Der Container installiert `libvips` und HEIF-Codec-Plugins. Damit stehen in der Standardkonfiguration JPEG, PNG, WebP, TIFF, GIF, HEIC/HEIF und AVIF zur Verfügung, soweit der jeweilige `libvips`-Decoder das konkrete Bild unterstützt. Nicht unterstützte oder beschädigte Dateien liefern eine kontrollierte Fehlermeldung.
 
-Als Ausgabe werden JPEG, PNG, WebP und AVIF angeboten. Die AVIF-Verfuegbarkeit setzt voraus, dass der verwendete `libvips`-/HEIF-Build einen AV1-Encoder bereitstellt; das Docker-Image installiert die Debian-HEIF-Plugins dafuer.
+Als Ausgabe werden JPEG, PNG, WebP und AVIF angeboten. Die AVIF-Verfügbarkeit setzt voraus, dass der verwendete `libvips`-/HEIF-Build einen AV1-Encoder bereitstellt; das Docker-Image installiert die Debian-HEIF-Plugins dafür.
 
 ## API
 
-`POST /api/resize` akzeptiert `multipart/form-data` mit den Feldern `file`, `width`, `height`, `mode`, `format`, `quality`, `cropX`, `cropY`, `background` und `stripMetadata`. Die Weboberflaeche sendet bei Crop zusaetzlich `cropLeft`, `cropTop`, `cropWidth` und `cropHeight` als normalisierte Werte zwischen `0` und `1`. Mit `mode=crop` wird der Ausschnitt ohne Verzerrung auf `width` x `height` skaliert; mit `mode=stretch` wird das Bild, oder ein optionaler manueller Ausschnitt, auf diese Groesse gedehnt.
+`POST /api/resize` akzeptiert `multipart/form-data` mit den Feldern `file`, `width`, `height`, `mode`, `format`, `quality`, `cropX`, `cropY`, `background` und `stripMetadata`. Die Weboberfläche sendet bei Crop zusätzlich `cropLeft`, `cropTop`, `cropWidth` und `cropHeight` als normalisierte Werte zwischen `0` und `1`. Mit `mode=crop` wird der Ausschnitt ohne Verzerrung auf `width` x `height` skaliert; mit `mode=stretch` wird das Bild, oder ein optionaler manueller Ausschnitt, auf diese Größe gedehnt.
 
 ```bash
 curl \
@@ -94,9 +94,9 @@ Bei Erfolg liefert der Endpoint die Bilddaten mit passendem `Content-Type` und e
 
 ## Limits und Sicherheit
 
-- Die Request-Groesse wird auf Uploadlimit plus Multipart-Overhead begrenzt.
-- Nach dem Laden prueft der Dienst die Eingabepixelzahl vor der eigentlichen Transformation, um Decompression-Bombs abzuweisen.
-- Zielbreite und Zielhoehe werden serverseitig geprueft.
+- Die Request-Größe wird auf Uploadlimit plus Multipart-Overhead begrenzt.
+- Nach dem Laden prüft der Dienst die Eingabepixelzahl vor der eigentlichen Transformation, um Decompression-Bombs abzuweisen.
+- Zielbreite und Zielhöhe werden serverseitig geprüft.
 - HTTP-Lese-, Schreib- und Idle-Timeouts sind gesetzt.
 - Fehlerantworten enthalten keine internen libvips-Details; Details werden nur im Serverlog erfasst.
 
@@ -108,4 +108,4 @@ Die Bildtests laufen im Build-Container oder auf einem System mit `libvips-dev`:
 go test ./...
 ```
 
-Sie pruefen die exakten Ergebnisdimensionen aller drei Resize-Modi und ungueltige Dimensionen, Modi und Qualitaetswerte.
+Sie prüfen die exakten Ergebnisdimensionen aller drei Resize-Modi und ungültige Dimensionen, Modi und Qualitätswerte.

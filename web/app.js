@@ -155,11 +155,11 @@ function selectFile(file) {
   clearMessage(uploadError);
   if (!file) return;
   if (!file.type.startsWith('image/') && !/\.(heic|heif)$/i.test(file.name)) {
-    showMessage(uploadError, 'Bitte waehlen Sie eine Bilddatei.');
+    showMessage(uploadError, 'Bitte wählen Sie eine Bilddatei.');
     return;
   }
   if (file.size > 50 * 1024 * 1024) {
-    showMessage(uploadError, 'Die Datei ist groesser als das Standardlimit von 50 MB.');
+    showMessage(uploadError, 'Die Datei ist größer als das Standardlimit von 50 MB.');
     return;
   }
   cancelPreview();
@@ -175,7 +175,7 @@ function selectFile(file) {
   selectedFile = file;
   newImage.hidden = false;
   setSubmitDisabled(false);
-  document.querySelector('#file-status').textContent = 'Ausgewaehlt';
+  document.querySelector('#file-status').textContent = 'Ausgewählt';
   document.querySelector('#source-name').textContent = file.name;
   document.querySelector('#source-format').textContent = readableFormat(file);
   document.querySelector('#source-size').textContent = formatBytes(file.size);
@@ -192,9 +192,9 @@ function selectFile(file) {
     schedulePreview();
   };
   sourcePreview.onerror = () => {
-    document.querySelector('#source-resolution').textContent = 'Browser-Vorschau nicht verfuegbar';
+    document.querySelector('#source-resolution').textContent = 'Browser-Vorschau nicht verfügbar';
     sourcePreview.hidden = true;
-    sourcePlaceholder.textContent = 'Vorschau fuer dieses Format nicht verfuegbar';
+    sourcePlaceholder.textContent = 'Vorschau für dieses Format nicht verfügbar';
     sourcePlaceholder.hidden = false;
     cropEditor.hidden = true;
     // Without browser decoding there is no crop to place, but the server can still render.
@@ -219,7 +219,7 @@ function resetImage() {
   sourcePreview.onerror = null;
   sourcePreview.removeAttribute('src');
   sourcePreview.hidden = true;
-  sourcePlaceholder.textContent = 'Noch kein Bild ausgew\u00e4hlt';
+  sourcePlaceholder.textContent = 'Noch kein Bild ausgewählt';
   sourcePlaceholder.hidden = false;
   sourceWrap.classList.add('empty');
   cropEditor.hidden = true;
@@ -301,8 +301,8 @@ function syncConditionalOptions() {
   const cropEnabled = mode === 'crop' || mode === 'stretch';
   document.querySelector('#crop-options').hidden = !cropEnabled;
   document.querySelector('#crop-help').textContent = mode === 'crop'
-    ? 'Der Rahmen folgt dem Zielseitenverhaeltnis. Ziehen Sie ihn zum Verschieben oder die Ecken zum Anpassen.'
-    : 'Ziehen Sie einen freien Rahmen auf oder passen Sie ihn an den Ecken an. Halten Sie Umschalt gedrueckt und ziehen Sie innerhalb des Rahmens zum Verschieben.';
+    ? 'Der Rahmen folgt dem Zielseitenverhältnis. Ziehen Sie ihn zum Verschieben oder die Ecken zum Anpassen.'
+    : 'Ziehen Sie einen freien Rahmen auf oder passen Sie ihn an den Ecken an. Halten Sie Umschalt gedrückt und ziehen Sie innerhalb des Rahmens zum Verschieben.';
   document.querySelector('#fit-options').hidden = mode !== 'fit';
   const isCustom = document.querySelector('#background').value === 'custom';
   document.querySelector('#custom-color-wrap').hidden = mode !== 'fit' || !isCustom;
@@ -335,7 +335,7 @@ function setAspectRatioLock(locked) {
     lockedAspectRatio = undefined;
   }
   aspectRatioLock.setAttribute('aria-pressed', String(locked));
-  aspectRatioLock.textContent = locked ? 'Seitenverhaeltnis entsperren' : 'Seitenverhaeltnis sperren';
+  aspectRatioLock.textContent = locked ? 'Seitenverhältnis entsperren' : 'Seitenverhältnis sperren';
 }
 
 function syncLockedDimension(changedInput) {
@@ -448,9 +448,9 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('keyup', (event) => {
   if (event.key === 'Shift') syncCropCursor(false);
 });
-// Das Vorschaufeld aendert seine Groesse auch ohne Fensteraenderung, etwa wenn
+// Das Vorschaufeld ändert seine Größe auch ohne Fensteränderung, etwa wenn
 // das Ergebnis-Panel erscheint und die Spalte schmaler wird. Der Crop-Rahmen
-// muss dann neu vermessen werden, sonst bleibt er auf der alten Groesse stehen.
+// muss dann neu vermessen werden, sonst bleibt er auf der alten Größe stehen.
 if (typeof ResizeObserver === 'function') {
   new ResizeObserver(() => syncCropEditor()).observe(sourceWrap);
 } else {
@@ -576,13 +576,13 @@ async function generate(preview) {
     resultStatus.textContent = '';
   }
   if (!selectedFile) {
-    if (!preview) showMessage(formError, 'Bitte waehlen Sie zuerst ein Bild aus.');
+    if (!preview) showMessage(formError, 'Bitte wählen Sie zuerst ein Bild aus.');
     return;
   }
   const width = Number(widthInput.value);
   const height = Number(heightInput.value);
   if (!validDimension(width, widthInput) || !validDimension(height, heightInput)) {
-    if (!preview) showMessage(formError, `Breite und Hoehe muessen ganze Zahlen zwischen ${widthInput.min} und ${widthInput.max} sein.`);
+    if (!preview) showMessage(formError, `Breite und Höhe müssen ganze Zahlen zwischen ${widthInput.min} und ${widthInput.max} sein.`);
     return;
   }
   // A live preview is the real output, so an unchanged request needs no round trip.
