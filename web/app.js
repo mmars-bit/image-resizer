@@ -21,6 +21,7 @@ const cropEditor = document.querySelector('#crop-editor');
 const cropSelection = document.querySelector('#crop-selection');
 const cropLabel = cropSelection.querySelector('span');
 const resetCrop = document.querySelector('#reset-crop');
+const appVersion = document.querySelector('#app-version');
 let selectedFile;
 let sourceURL;
 let resultURL;
@@ -36,6 +37,19 @@ let renderedKey;
 const settingsStorageKey = 'image-resizer.settings.v2';
 // The pause that marks an edit as finished, so dragging never triggers a render.
 const previewDelay = 450;
+
+async function loadVersion() {
+  try {
+    const response = await fetch('/api/version', { headers: { Accept: 'application/json' } });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (typeof data.version === 'string' && data.version) {
+      appVersion.textContent = data.version === 'dev' ? data.version : `v${data.version}`;
+    }
+  } catch (_) { /* The development label remains when version lookup fails. */ }
+}
+
+loadVersion();
 
 function saveSettings() {
   try {

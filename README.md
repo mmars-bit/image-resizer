@@ -109,3 +109,11 @@ go test ./...
 ```
 
 Sie prüfen die exakten Ergebnisdimensionen aller drei Resize-Modi und ungültige Dimensionen, Modi und Qualitätswerte.
+
+## Releases
+
+Pushes auf `main` aktualisieren automatisch einen Release-PR anhand von Conventional Commits. `fix:` erhöht die Patch-Version, `feat:` die Minor-Version und ein Breaking Change die Major-Version. Beim Merge des Release-PRs wird ein GitHub Release erstellt und das Docker-Image mit der vollständigen Version, Major/Minor-Version, Major-Version und `latest` zu Docker Hub gepusht.
+
+Das Repository benötigt die Actions-Variable `DOCKERHUB_USERNAME` und das Actions-Secret `DOCKERHUB_TOKEN`. Der Token sollte ein Docker-Hub-Zugriffstoken mit Schreibzugriff auf das Repository `image-resizer` sein.
+
+Die aktuelle Anwendungs-Version steht in `internal/appversion/version.txt`, wird direkt in das Go-Binary eingebettet und in der Weboberfläche angezeigt. Release Please aktualisiert diese Datei im Release-PR; Docker-Buildnummern oder lokale Build-Argumente verändern die angezeigte Version nicht. Release-Images werden für `linux/amd64` und `linux/arm64` veröffentlicht.

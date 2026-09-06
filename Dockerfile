@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 FROM golang:1.25-trixie AS build
 
 WORKDIR /src
@@ -8,10 +10,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN go test ./...
-RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/image-resizer ./cmd/server
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY cmd ./cmd
+COPY internal ./internal
+COPY web ./web
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go test ./...
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/image-resizer ./cmd/server
 
 FROM debian:trixie-slim
 

@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 
 type Config struct {
 	MaxUploadBytes int64
+	Version        string
 }
 
 type Server struct {
@@ -39,6 +41,7 @@ func New(processor *image.Processor, config Config, logger *slog.Logger) (*Serve
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", server.health)
+	mux.HandleFunc("GET /api/version", server.version)
 	mux.HandleFunc("POST /api/resize", server.resize)
 	mux.Handle("GET /", http.FileServer(http.FS(assets)))
 	serverHandler := securityHeaders(mux)
@@ -65,6 +68,14 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+func (s *Server) version(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(struct {
+		Version string `json:"version"`
+	}{Version: s.config.Version})
 }
 
 func securityHeaders(next http.Handler) http.Handler {
